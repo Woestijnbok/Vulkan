@@ -4,16 +4,25 @@
     <Filter Include="Application">
       <UniqueIdentifier>{1310b839-a25f-4cc6-87ce-e71b43928bc9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Helper Functions">
+      <UniqueIdentifier>{db8bf314-5512-4373-8d73-9f3f3532c9c4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp">
       <Filter>Application</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="HelperFunctions.cpp">
+      <Filter>Helper Functions</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
       <Filter>Application</Filter>
+    </ClInclude>
+    <ClInclude Include="HelperFunctions.h">
+      <Filter>Helper Functions</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

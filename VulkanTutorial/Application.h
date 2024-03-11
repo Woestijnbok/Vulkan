@@ -1,7 +1,8 @@
 #ifndef APPLICATION
 #define APPLICATION
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
+#include <vector>
 
 struct GLFWwindow;
 
@@ -23,13 +24,18 @@ private:
 
     void InitializeWindow();
     void InitializeVulkan();
-    bool GLFWExtensionsPresent();
+    bool ExtensionsPresent();
+    bool ValidationLayersPresent();
     VkResult CreateVulkanInstance();
+    VkResult SetupDebugMessenger();
 
     int m_Width;
     int m_Height;
     GLFWwindow* m_Window;
     VkInstance m_Instance;
+    VkDebugUtilsMessengerEXT m_DebugMessenger;
+    std::vector<const char*> m_ValidationLayerNames;
+    std::vector<const char*> m_ExtensionNames;
 };
 
 #endif
