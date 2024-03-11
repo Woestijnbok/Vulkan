@@ -1,6 +1,8 @@
 #ifndef APPLICATION
 #define APPLICATION
 
+#include <vulkan/vulkan.h>
+
 struct GLFWwindow;
 
 class Application
@@ -21,10 +23,13 @@ private:
 
     void InitializeWindow();
     void InitializeVulkan();
+    bool GLFWExtensionsPresent();
+    VkResult CreateVulkanInstance();
 
     int m_Width;
     int m_Height;
     GLFWwindow* m_Window;
+    VkInstance m_Instance;
 };
 
 #endif
