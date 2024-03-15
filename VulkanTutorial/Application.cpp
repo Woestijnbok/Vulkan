@@ -23,7 +23,8 @@ Application::Application(int width, int height) :
 	m_Instance{},
 	m_DebugMessenger{},
 	m_ValidationLayerNames{ "VK_LAYER_KHRONOS_validation" },
-	m_ExtensionNames{}
+	m_ExtensionNames{},
+	m_PhysicalDevice{ VK_NULL_HANDLE }
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -73,6 +74,7 @@ void Application::InitializeVulkan()
 
 	if (CreateVulkanInstance() != VK_SUCCESS) throw std::runtime_error("failed to create vulkan instance!");
 	if (SetupDebugMessenger() != VK_SUCCESS) throw std::runtime_error("failed to setup debug messenger!");
+	PickPhysicalDevice();
 }
 
 bool Application::ExtensionsPresent()
@@ -203,4 +205,26 @@ VkResult Application::SetupDebugMessenger()
 	}
 
 	return VK_SUCCESS;
+}
+
+void Application::PickPhysicalDevice()
+{
+	uint32_t deviceCount{};
+	vkEnumeratePhysicalDevices(m_Instance, &deviceCount, nullptr);
+
+	if (deviceCount == 0) std::runtime_error("Failed to find gpu with vulkan support!");
+
+	std::vector<VkPhysicalDevice> devices(deviceCount);
+	vkEnumeratePhysicalDevices(m_Instance, &deviceCount, devices.data());
+
+	for (auto device : devices)
+	{
+		if (IsPhysicalDeviceSuitable(device))
+		{
+			m_PhysicalDevice = device;
+			break;
+		}
+	}
+
+	if (m_PhysicalDevice == VK_NULL_HANDLE) std::runtime_error("Failed to find suitable gpu!");
 }

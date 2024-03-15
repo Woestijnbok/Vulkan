@@ -3,6 +3,8 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include "HelperStructs.h"
+
 //Function to load and call the vkCreateDebugUtilsMessengerEXT function since it's not loaded automatically
 VkResult CreateDebugUtilsMessengerEXT
 (
@@ -31,5 +33,10 @@ VKAPI_ATTR VkBool32 VKAPI_CALL MessageCallback
 
 // Function that fills our VkDebugUtilsMessengerCreateInfoEXT struct
 void FillDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+
+// Checks if the gpu is suitable for the operations we want to do
+bool IsPhysicalDeviceSuitable(VkPhysicalDevice device);
+
+QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
 
 #endif

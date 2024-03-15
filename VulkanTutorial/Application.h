@@ -28,6 +28,7 @@ private:
     bool ValidationLayersPresent();
     VkResult CreateVulkanInstance();
     VkResult SetupDebugMessenger();
+    void PickPhysicalDevice();
 
     int m_Width;
     int m_Height;
@@ -36,6 +37,7 @@ private:
     VkDebugUtilsMessengerEXT m_DebugMessenger;
     std::vector<const char*> m_ValidationLayerNames;
     std::vector<const char*> m_ExtensionNames;
+    VkPhysicalDevice m_PhysicalDevice;
 };
 
 #endif

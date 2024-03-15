@@ -7,6 +7,9 @@
     <Filter Include="Helper Functions">
       <UniqueIdentifier>{db8bf314-5512-4373-8d73-9f3f3532c9c4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Helper Structs">
+      <UniqueIdentifier>{ddf2b982-b623-4a8d-aaba-0f1648945752}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp">
@@ -16,6 +19,9 @@
     <ClCompile Include="HelperFunctions.cpp">
       <Filter>Helper Functions</Filter>
     </ClCompile>
+    <ClCompile Include="HelperStructs.cpp">
+      <Filter>Helper Structs</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -23,6 +29,9 @@
     </ClInclude>
     <ClInclude Include="HelperFunctions.h">
       <Filter>Helper Functions</Filter>
+    </ClInclude>
+    <ClInclude Include="HelperStructs.h">
+      <Filter>Helper Structs</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
