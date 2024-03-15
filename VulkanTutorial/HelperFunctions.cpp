@@ -72,17 +72,9 @@ void FillDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo
 
 bool IsPhysicalDeviceSuitable(VkPhysicalDevice device)
 {
-    VkPhysicalDeviceProperties deviceProperties{};
-    vkGetPhysicalDeviceProperties(device, &deviceProperties);
-
-    VkPhysicalDeviceFeatures deviceFeatures{};
-    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
-
     QueueFamilyIndices indices{ FindQueueFamilies(device) };
     
-    return (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) 
-        and (deviceFeatures.geometryShader) 
-        and (indices.IsComplete());
+    return indices.IsComplete();
 }
 
 QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device)
@@ -92,7 +84,7 @@ QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device)
     uint32_t queueFamilyCount{};
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
-    std::vector<VkQueueFamilyProperties> queueFamilyProperties{};
+    std::vector<VkQueueFamilyProperties> queueFamilyProperties{ queueFamilyCount };
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilyProperties.data());
 
     int i{};

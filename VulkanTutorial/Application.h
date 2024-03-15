@@ -28,7 +28,9 @@ private:
     bool ValidationLayersPresent();
     VkResult CreateVulkanInstance();
     VkResult SetupDebugMessenger();
-    void PickPhysicalDevice();
+    bool PickPhysicalDevice();
+    VkResult CreateLogicalDevice();
+    void RetrieveQueueHandles();
 
     int m_Width;
     int m_Height;
@@ -38,6 +40,8 @@ private:
     std::vector<const char*> m_ValidationLayerNames;
     std::vector<const char*> m_ExtensionNames;
     VkPhysicalDevice m_PhysicalDevice;
+    VkDevice m_Device;
+    VkQueue m_GrahicsQueue;
 };
 
 #endif

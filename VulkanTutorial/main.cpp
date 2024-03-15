@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <vld.h>
+#include <format>
 
 #include "Application.h"
 
@@ -9,6 +10,7 @@ int main()
 {
     try 
     {
+        std::cout << std::format("The application is {} bytes.", sizeof(Application)) << std::endl;
         Application application{ 800, 600 };
         application.Run();
     }

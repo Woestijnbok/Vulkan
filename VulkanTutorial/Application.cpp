@@ -24,7 +24,9 @@ Application::Application(int width, int height) :
 	m_DebugMessenger{},
 	m_ValidationLayerNames{ "VK_LAYER_KHRONOS_validation" },
 	m_ExtensionNames{},
-	m_PhysicalDevice{ VK_NULL_HANDLE }
+	m_PhysicalDevice{ VK_NULL_HANDLE },
+	m_Device{ VK_NULL_HANDLE },
+	m_GrahicsQueue{ VK_NULL_HANDLE }
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -32,6 +34,7 @@ Application::Application(int width, int height) :
 
 Application::~Application()
 {
+	vkDestroyDevice(m_Device, nullptr);
 	if (g_EnableValidationlayers) DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
 	vkDestroyInstance(m_Instance, nullptr);
 	glfwDestroyWindow(m_Window);
@@ -74,7 +77,9 @@ void Application::InitializeVulkan()
 
 	if (CreateVulkanInstance() != VK_SUCCESS) throw std::runtime_error("failed to create vulkan instance!");
 	if (SetupDebugMessenger() != VK_SUCCESS) throw std::runtime_error("failed to setup debug messenger!");
-	PickPhysicalDevice();
+	if (!PickPhysicalDevice()) throw std::runtime_error("Failed to find suitable gpu!");
+	if (CreateLogicalDevice() != VK_SUCCESS) throw std::runtime_error("failed to create logical device!");
+	RetrieveQueueHandles();
 }
 
 bool Application::ExtensionsPresent()
@@ -207,12 +212,12 @@ VkResult Application::SetupDebugMessenger()
 	return VK_SUCCESS;
 }
 
-void Application::PickPhysicalDevice()
+bool Application::PickPhysicalDevice()
 {
 	uint32_t deviceCount{};
 	vkEnumeratePhysicalDevices(m_Instance, &deviceCount, nullptr);
 
-	if (deviceCount == 0) std::runtime_error("Failed to find gpu with vulkan support!");
+	if (deviceCount == 0) throw std::runtime_error("Failed to find gpu with vulkan support!");
 
 	std::vector<VkPhysicalDevice> devices(deviceCount);
 	vkEnumeratePhysicalDevices(m_Instance, &deviceCount, devices.data());
@@ -226,5 +231,47 @@ void Application::PickPhysicalDevice()
 		}
 	}
 
-	if (m_PhysicalDevice == VK_NULL_HANDLE) std::runtime_error("Failed to find suitable gpu!");
+	return m_PhysicalDevice != VK_NULL_HANDLE;
+}
+
+VkResult Application::CreateLogicalDevice()
+{
+	QueueFamilyIndices queueFamilyIndices{ FindQueueFamilies(m_PhysicalDevice) };
+	
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDeviceQueueCreateInfo.html
+	VkDeviceQueueCreateInfo queueCreateInfo{};
+	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	queueCreateInfo.queueFamilyIndex = queueFamilyIndices.GraphicsFamily.value();
+	queueCreateInfo.queueCount = 1;
+	std::vector<float> queuePriorities{ 1.0f };
+	queueCreateInfo.pQueuePriorities = queuePriorities.data();
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPhysicalDeviceFeatures.html
+	VkPhysicalDeviceFeatures physicalDeviceFeatures{};
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDeviceCreateInfo.html
+	VkDeviceCreateInfo deviceCreateInfo{};
+	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
+	deviceCreateInfo.queueCreateInfoCount = 1;
+	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeatures;
+	deviceCreateInfo.enabledExtensionCount = 0;
+	if (g_EnableValidationlayers)
+	{
+		deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(m_ValidationLayerNames.size());
+		deviceCreateInfo.ppEnabledLayerNames = m_ValidationLayerNames.data();
+	}
+	else
+	{
+		deviceCreateInfo.enabledLayerCount = 0;
+	}
+	
+	return vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device);
+}
+
+void Application::RetrieveQueueHandles()
+{
+	QueueFamilyIndices queueFamilyIndices{ FindQueueFamilies(m_PhysicalDevice) };
+
+	vkGetDeviceQueue(m_Device, queueFamilyIndices.GraphicsFamily.value(), 0, &m_GrahicsQueue);
 }

@@ -37,6 +37,7 @@ void FillDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo
 // Checks if the gpu is suitable for the operations we want to do
 bool IsPhysicalDeviceSuitable(VkPhysicalDevice device);
 
+// Find all the queue families we need
 QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
 
 #endif
