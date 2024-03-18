@@ -34,6 +34,7 @@ private:
     VkResult CreateSwapChain();
     void RetrieveQueueHandles();
     void RetrieveSwapChainImages();
+    VkResult CreateSwapChainImageViews();
 
     int m_Width;
     int m_Height;
@@ -52,6 +53,7 @@ private:
     std::vector<VkImage> m_SwapChainImages;
     VkFormat m_ImageFormat;
     VkExtent2D m_ImageExtend;
+    std::vector<VkImageView> m_SwapChainImageViews;
 };
 
 #endif

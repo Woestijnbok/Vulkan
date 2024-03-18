@@ -31,7 +31,8 @@ Application::Application(int width, int height) :
 	m_Device{ VK_NULL_HANDLE },
 	m_GrahicsQueue{ VK_NULL_HANDLE },
 	m_PresentQueue{ VK_NULL_HANDLE },
-	m_SwapChainImages{}
+	m_SwapChainImages{},
+	m_SwapChainImageViews{}
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -39,6 +40,10 @@ Application::Application(int width, int height) :
 
 Application::~Application()
 {
+	for (auto imageView : m_SwapChainImageViews)
+	{
+		vkDestroyImageView(m_Device, imageView, nullptr);
+	}
 	vkDestroySwapchainKHR(m_Device, m_SwapChain, nullptr);
 	vkDestroyDevice(m_Device, nullptr);
 	vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
@@ -90,6 +95,7 @@ void Application::InitializeVulkan()
 	RetrieveQueueHandles();
 	if (CreateSwapChain() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain!");
 	RetrieveSwapChainImages();
+	if (CreateSwapChainImageViews() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain image views!");
 }
 
 bool Application::ExtensionsPresent()
@@ -302,7 +308,7 @@ VkResult Application::CreateSwapChain()
 	VkExtent2D extend{ ChooseExtent(details.Capabilities, m_Window) };
 
 	m_ImageExtend = extend;
-	m_ImageFormat = m_ImageFormat;
+	m_ImageFormat = surfaceFormat.format;
 
 	// Set surface count to min + 1, and make sure we don't exceed max count, if max is set to 0 = no max
 	uint32_t surfacesCount{ details.Capabilities.minImageCount + 1 };
@@ -361,4 +367,32 @@ void Application::RetrieveSwapChainImages()
 	vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, nullptr);
 	m_SwapChainImages.resize(imageCount);
 	vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, m_SwapChainImages.data());
+}
+
+VkResult Application::CreateSwapChainImageViews()
+{
+	m_SwapChainImageViews.resize(m_SwapChainImages.size());
+	for (size_t i{}; i < m_SwapChainImages.size(); ++i)
+	{
+		VkImageViewCreateInfo imageViewcreateInfo{};
+		imageViewcreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		imageViewcreateInfo.image = m_SwapChainImages[i];
+		imageViewcreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		imageViewcreateInfo.format = m_ImageFormat;
+		imageViewcreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewcreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewcreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewcreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewcreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageViewcreateInfo.subresourceRange.baseMipLevel = 0;
+		imageViewcreateInfo.subresourceRange.levelCount = 1;
+		imageViewcreateInfo.subresourceRange.baseArrayLayer = 0;
+		imageViewcreateInfo.subresourceRange.layerCount = 1;
+
+		VkResult result{ vkCreateImageView(m_Device, &imageViewcreateInfo, nullptr, &m_SwapChainImageViews.at(i)) };
+
+		if (result != VK_SUCCESS) return result;
+	}
+
+	return VK_SUCCESS;
 }
