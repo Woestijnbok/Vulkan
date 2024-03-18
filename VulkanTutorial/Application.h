@@ -31,7 +31,9 @@ private:
     VkResult CreateSurface();
     bool PickPhysicalDevice();
     VkResult CreateLogicalDevice();
+    VkResult CreateSwapChain();
     void RetrieveQueueHandles();
+    void RetrieveSwapChainImages();
 
     int m_Width;
     int m_Height;
@@ -39,12 +41,17 @@ private:
     VkInstance m_Instance;
     VkDebugUtilsMessengerEXT m_DebugMessenger;
     VkSurfaceKHR m_Surface;
-    std::vector<const char*> m_ValidationLayerNames;
-    std::vector<const char*> m_ExtensionNames;
+    std::vector<const char*> m_InstanceValidationLayerNames;
+    std::vector<const char*> m_InstanceExtensionNames;
+    std::vector<const char*> m_PhysicalDeviceExtensionNames;
     VkPhysicalDevice m_PhysicalDevice;
     VkDevice m_Device;
     VkQueue m_GrahicsQueue;
     VkQueue m_PresentQueue;
+    VkSwapchainKHR m_SwapChain;
+    std::vector<VkImage> m_SwapChainImages;
+    VkFormat m_ImageFormat;
+    VkExtent2D m_ImageExtend;
 };
 
 #endif

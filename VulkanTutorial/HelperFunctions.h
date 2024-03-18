@@ -5,6 +5,8 @@
 
 #include "HelperStructs.h"
 
+struct GLFWwindow;
+
 //Function to load and call the vkCreateDebugUtilsMessengerEXT function since it's not loaded automatically
 VkResult CreateDebugUtilsMessengerEXT
 (
@@ -35,9 +37,24 @@ VKAPI_ATTR VkBool32 VKAPI_CALL MessageCallback
 void FillDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 
 // Checks if the gpu is suitable for the operations we want to do
-bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
+bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std::vector<const char*>& physicalExtensionNames);
 
 // Find all the queue families we need
 QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
+
+// Check if all required device extensions are enabled
+bool DeviceExtenstionsPresent(VkPhysicalDevice device, std::vector<const char*>& physicalExtensionNames);
+
+// Function that fills our VkDebugUtilsMessengerCreateInfoEXT struct
+SwapChainSupportDetails QuerySwapChainSupportDetails(VkPhysicalDevice device, VkSurfaceKHR surface);
+
+// Will find the best possible format out of the given ones (swap chain)
+VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+
+// Will find the best possible format out of the given ones (swap chain)
+VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+
+// Will find the best possible swap extent this is about the resulutions of the images / surfaces in the swap chain
+VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window);
 
 #endif

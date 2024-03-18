@@ -1,7 +1,8 @@
 #include <iostream>
+#include <iomanip>
+#include <GLFW/glfw3.h>
 
 #include "HelperFunctions.h"
-
 
 VkResult CreateDebugUtilsMessengerEXT
 (
@@ -70,11 +71,23 @@ void FillDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo
     createInfo.pfnUserCallback = &MessageCallback;
 }
 
-bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface)
+bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std::vector<const char*>& physicalExtensionNames)
 {
     QueueFamilyIndices indices{ FindQueueFamilies(device, surface) };
+
+    bool queueFamiliesPresent{ indices.IsComplete() };
+
+    bool deviceExtensionPresent{ DeviceExtenstionsPresent(device, physicalExtensionNames) };
+
+    bool swapChainDetailsPresent{ false };
+    if (deviceExtensionPresent)
+    {
+        // Is okay for now if there is one supported format and present mode for given device and surface;
+        SwapChainSupportDetails swapChainDetails{ QuerySwapChainSupportDetails(device, surface) };
+        swapChainDetailsPresent = !swapChainDetails.Formats.empty() && !swapChainDetails.PresentModes.empty();
+    }
     
-    return indices.IsComplete();
+    return queueFamiliesPresent and deviceExtensionPresent and swapChainDetailsPresent;
 }
 
 QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
@@ -90,11 +103,13 @@ QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surfa
     int i{};
     for (const auto& queueFamilyProperty : queueFamilyProperties)
     {
+        // Checking draw queues are supported
         if ((not indices.GraphicsFamily.has_value()) and (queueFamilyProperty.queueFlags & VK_QUEUE_GRAPHICS_BIT))
         {
             indices.GraphicsFamily = i;
         }
 
+        // Checking if present queues are supported
         VkBool32 presentQueueFamilySupport{};
         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentQueueFamilySupport);
         if (presentQueueFamilySupport)
@@ -108,4 +123,123 @@ QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surfa
     }
 
     return indices;
+}
+
+bool DeviceExtenstionsPresent(VkPhysicalDevice device, std::vector<const char*>& physicalExtensionNames)
+{
+    uint32_t extensionCount;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+    std::vector<VkExtensionProperties> extensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, extensions.data());
+
+    bool extensionsPresent{ true };
+    std::cout << std::endl << "-----Physical Device Extensions-----" << std::endl;
+    for (const auto& extensionName : physicalExtensionNames)
+    {
+        std::cout << std::setw(40) << std::left << extensionName;
+
+        extensions.at(0).extensionName;
+
+        if (std::ranges::find_if(extensions,
+            [&extensionName](const auto& extension) -> bool
+            {
+                return strcmp(extensionName, extension.extensionName) == 0;
+            }
+        ) != extensions.end())
+        {
+            std::cout << std::setw(40) << std::left << "PRESENT";
+        }
+        else
+        {
+            extensionsPresent = false;
+            std::cout << std::setw(40) << std::left << "NOT PRESENT";
+        }
+
+        std::cout << std::endl;
+    }
+    std::cout << std::endl;
+
+    return extensionsPresent;
+}
+
+SwapChainSupportDetails QuerySwapChainSupportDetails(VkPhysicalDevice device, VkSurfaceKHR surface)
+{
+    SwapChainSupportDetails details{};
+
+    // Capabilities
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.Capabilities);
+
+    // Surface formats
+    uint32_t formatCount;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+    if (formatCount != 0) 
+    {
+        details.Formats.resize(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.Formats.data());
+    }
+
+    // Present modes
+    uint32_t presentModeCount;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+    if (presentModeCount != 0) 
+    {
+        details.PresentModes.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.PresentModes.data());
+    }
+
+    return details;
+}
+
+VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
+{
+    for (const auto& availableFormat : availableFormats)
+    {
+        // format with r,g,b,a channel taking each 8bits & srgb
+        if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) 
+        {
+            return availableFormat;
+        }
+    }
+
+    return availableFormats.at(0);
+}
+
+VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
+{
+    for (const auto& availablePresentMode : availablePresentModes) 
+    {
+        // Is the triple buffering principle
+        if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) 
+        {
+            return availablePresentMode;
+        }
+    }
+
+    // Is always present
+    return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window)
+{
+    // Does the window manager not allow to have different resulotion in the window then the images / surfaces in the swapchain
+    if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) 
+    {
+        return capabilities.currentExtent;
+    }
+    else 
+    {
+        int width, height;
+        glfwGetFramebufferSize(window, &width, &height);
+
+        VkExtent2D actualExtent
+        {
+            static_cast<uint32_t>(width),
+            static_cast<uint32_t>(height)
+        };
+
+        actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+        actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+
+        return actualExtent;
+    }
 }

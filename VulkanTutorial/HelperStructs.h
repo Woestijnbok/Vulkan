@@ -3,6 +3,7 @@
 
 #include <vulkan/vulkan.hpp>
 #include <optional>
+#include <vector>
 
 struct QueueFamilyIndices
 {
@@ -10,6 +11,13 @@ struct QueueFamilyIndices
 	std::optional<uint32_t> PresentFamily;
 
 	bool IsComplete();
+};
+
+struct SwapChainSupportDetails
+{
+	VkSurfaceCapabilitiesKHR Capabilities;
+	std::vector<VkSurfaceFormatKHR> Formats;
+	std::vector<VkPresentModeKHR> PresentModes;
 };
 
 #endif
