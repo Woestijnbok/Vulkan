@@ -70,14 +70,14 @@ void FillDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo
     createInfo.pfnUserCallback = &MessageCallback;
 }
 
-bool IsPhysicalDeviceSuitable(VkPhysicalDevice device)
+bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface)
 {
-    QueueFamilyIndices indices{ FindQueueFamilies(device) };
+    QueueFamilyIndices indices{ FindQueueFamilies(device, surface) };
     
     return indices.IsComplete();
 }
 
-QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device)
+QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
 {
     QueueFamilyIndices indices{};
     
@@ -93,6 +93,13 @@ QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device)
         if ((not indices.GraphicsFamily.has_value()) and (queueFamilyProperty.queueFlags & VK_QUEUE_GRAPHICS_BIT))
         {
             indices.GraphicsFamily = i;
+        }
+
+        VkBool32 presentQueueFamilySupport{};
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentQueueFamilySupport);
+        if (presentQueueFamilySupport)
+        {
+            indices.PresentFamily = i;
         }
 
         if (indices.IsComplete()) break;

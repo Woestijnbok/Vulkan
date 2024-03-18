@@ -35,9 +35,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL MessageCallback
 void FillDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 
 // Checks if the gpu is suitable for the operations we want to do
-bool IsPhysicalDeviceSuitable(VkPhysicalDevice device);
+bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface);
 
 // Find all the queue families we need
-QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
+QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 
 #endif

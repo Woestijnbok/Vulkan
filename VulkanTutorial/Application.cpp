@@ -12,6 +12,7 @@ const bool g_EnableValidationlayers{ true };
 #include <algorithm>
 #include <iomanip>
 #include <cstring>
+#include <set>
 
 #include "Application.h"
 #include "HelperFunctions.h"
@@ -22,11 +23,13 @@ Application::Application(int width, int height) :
 	m_Window{ nullptr },
 	m_Instance{},
 	m_DebugMessenger{},
+	m_Surface{},
 	m_ValidationLayerNames{ "VK_LAYER_KHRONOS_validation" },
 	m_ExtensionNames{},
 	m_PhysicalDevice{ VK_NULL_HANDLE },
 	m_Device{ VK_NULL_HANDLE },
-	m_GrahicsQueue{ VK_NULL_HANDLE }
+	m_GrahicsQueue{ VK_NULL_HANDLE },
+	m_PresentQueue{ VK_NULL_HANDLE }
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -35,6 +38,7 @@ Application::Application(int width, int height) :
 Application::~Application()
 {
 	vkDestroyDevice(m_Device, nullptr);
+	vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
 	if (g_EnableValidationlayers) DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
 	vkDestroyInstance(m_Instance, nullptr);
 	glfwDestroyWindow(m_Window);
@@ -77,6 +81,7 @@ void Application::InitializeVulkan()
 
 	if (CreateVulkanInstance() != VK_SUCCESS) throw std::runtime_error("failed to create vulkan instance!");
 	if (SetupDebugMessenger() != VK_SUCCESS) throw std::runtime_error("failed to setup debug messenger!");
+	if (CreateSurface() != VK_SUCCESS) throw std::runtime_error("failed to create surface!");
 	if (!PickPhysicalDevice()) throw std::runtime_error("Failed to find suitable gpu!");
 	if (CreateLogicalDevice() != VK_SUCCESS) throw std::runtime_error("failed to create logical device!");
 	RetrieveQueueHandles();
@@ -212,6 +217,11 @@ VkResult Application::SetupDebugMessenger()
 	return VK_SUCCESS;
 }
 
+VkResult Application::CreateSurface()
+{
+	return glfwCreateWindowSurface(m_Instance, m_Window, nullptr, &m_Surface);
+}
+
 bool Application::PickPhysicalDevice()
 {
 	uint32_t deviceCount{};
@@ -224,7 +234,7 @@ bool Application::PickPhysicalDevice()
 
 	for (auto device : devices)
 	{
-		if (IsPhysicalDeviceSuitable(device))
+		if (IsPhysicalDeviceSuitable(device, m_Surface))
 		{
 			m_PhysicalDevice = device;
 			break;
@@ -236,15 +246,23 @@ bool Application::PickPhysicalDevice()
 
 VkResult Application::CreateLogicalDevice()
 {
-	QueueFamilyIndices queueFamilyIndices{ FindQueueFamilies(m_PhysicalDevice) };
-	
-	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDeviceQueueCreateInfo.html
-	VkDeviceQueueCreateInfo queueCreateInfo{};
-	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	queueCreateInfo.queueFamilyIndex = queueFamilyIndices.GraphicsFamily.value();
-	queueCreateInfo.queueCount = 1;
-	std::vector<float> queuePriorities{ 1.0f };
-	queueCreateInfo.pQueuePriorities = queuePriorities.data();
+	QueueFamilyIndices queueFamilyIndices{ FindQueueFamilies(m_PhysicalDevice, m_Surface) };
+	std::vector<VkDeviceQueueCreateInfo> queueFamailyCreateInfos{};
+	std::set<uint32_t> queueFamilieIndexes{ queueFamilyIndices.GraphicsFamily.value(), queueFamilyIndices.PresentFamily.value() };
+
+	const float queuePriority{ 1.0f };
+
+	for (auto queueFamilyIndex : queueFamilieIndexes)
+	{
+		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDeviceQueueCreateInfo.html
+		VkDeviceQueueCreateInfo queueFamiliyCreateInfo{};
+		queueFamiliyCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueFamiliyCreateInfo.queueFamilyIndex = queueFamilyIndex;
+		queueFamiliyCreateInfo.queueCount = 1;
+		queueFamiliyCreateInfo.pQueuePriorities = &queuePriority;
+
+		queueFamailyCreateInfos.push_back(queueFamiliyCreateInfo);
+	}
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPhysicalDeviceFeatures.html
 	VkPhysicalDeviceFeatures physicalDeviceFeatures{};
@@ -252,8 +270,8 @@ VkResult Application::CreateLogicalDevice()
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDeviceCreateInfo.html
 	VkDeviceCreateInfo deviceCreateInfo{};
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
-	deviceCreateInfo.queueCreateInfoCount = 1;
+	deviceCreateInfo.pQueueCreateInfos = queueFamailyCreateInfos.data();
+	deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueFamailyCreateInfos.size());
 	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeatures;
 	deviceCreateInfo.enabledExtensionCount = 0;
 	if (g_EnableValidationlayers)
@@ -271,7 +289,8 @@ VkResult Application::CreateLogicalDevice()
 
 void Application::RetrieveQueueHandles()
 {
-	QueueFamilyIndices queueFamilyIndices{ FindQueueFamilies(m_PhysicalDevice) };
+	QueueFamilyIndices queueFamilyIndices{ FindQueueFamilies(m_PhysicalDevice, m_Surface) };
 
 	vkGetDeviceQueue(m_Device, queueFamilyIndices.GraphicsFamily.value(), 0, &m_GrahicsQueue);
+	vkGetDeviceQueue(m_Device, queueFamilyIndices.PresentFamily.value(), 0, &m_PresentQueue);
 }

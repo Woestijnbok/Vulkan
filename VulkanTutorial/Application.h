@@ -28,6 +28,7 @@ private:
     bool ValidationLayersPresent();
     VkResult CreateVulkanInstance();
     VkResult SetupDebugMessenger();
+    VkResult CreateSurface();
     bool PickPhysicalDevice();
     VkResult CreateLogicalDevice();
     void RetrieveQueueHandles();
@@ -37,11 +38,13 @@ private:
     GLFWwindow* m_Window;
     VkInstance m_Instance;
     VkDebugUtilsMessengerEXT m_DebugMessenger;
+    VkSurfaceKHR m_Surface;
     std::vector<const char*> m_ValidationLayerNames;
     std::vector<const char*> m_ExtensionNames;
     VkPhysicalDevice m_PhysicalDevice;
     VkDevice m_Device;
     VkQueue m_GrahicsQueue;
+    VkQueue m_PresentQueue;
 };
 
 #endif
