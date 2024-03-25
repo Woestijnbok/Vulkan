@@ -55,6 +55,8 @@ private:
     VkFormat m_ImageFormat;
     VkExtent2D m_ImageExtend;
     std::vector<VkImageView> m_SwapChainImageViews;
+    VkShaderModule m_VertexShader;
+    VkShaderModule m_FragmentShader;
 };
 
 #endif

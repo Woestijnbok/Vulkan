@@ -32,7 +32,9 @@ Application::Application(int width, int height) :
 	m_GrahicsQueue{ VK_NULL_HANDLE },
 	m_PresentQueue{ VK_NULL_HANDLE },
 	m_SwapChainImages{},
-	m_SwapChainImageViews{}
+	m_SwapChainImageViews{},
+	m_VertexShader{},
+	m_FragmentShader{}
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -40,6 +42,8 @@ Application::Application(int width, int height) :
 
 Application::~Application()
 {
+	vkDestroyShaderModule(m_Device, m_VertexShader, nullptr);
+	vkDestroyShaderModule(m_Device, m_FragmentShader, nullptr);
 	for (auto imageView : m_SwapChainImageViews)
 	{
 		vkDestroyImageView(m_Device, imageView, nullptr);
@@ -400,5 +404,24 @@ VkResult Application::CreateSwapChainImageViews()
 
 VkResult Application::CreateGraphicsPipeline()
 {
+	
+	m_VertexShader = CreateShaderModule(LoadSPIRV("shaders/vert.spv"), m_Device);
+	m_FragmentShader = CreateShaderModule(LoadSPIRV("shaders/frag.spv"), m_Device);
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html
+	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+	vertShaderStageInfo.module = m_VertexShader;
+	vertShaderStageInfo.pName = "main";
+
+	VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+	fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	fragShaderStageInfo.module = m_FragmentShader;
+	fragShaderStageInfo.pName = "main";
+
+	VkPipelineShaderStageCreateInfo shaderStages[2]{ vertShaderStageInfo, fragShaderStageInfo };
+
 	return VK_SUCCESS;
 }

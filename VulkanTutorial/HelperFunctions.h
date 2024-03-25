@@ -2,6 +2,7 @@
 #define HELPER_FUNCTIONS
 
 #include <vulkan/vulkan.hpp>
+#include <filesystem>
 
 #include "HelperStructs.h"
 
@@ -56,5 +57,9 @@ VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& availabl
 
 // Will find the best possible swap extent this is about the resulutions of the images / surfaces in the swap chain
 VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window);
+
+std::vector<char> LoadSPIRV(const std::filesystem::path& path);
+
+VkShaderModule CreateShaderModule(const std::vector<char>& buffer, VkDevice device);
 
 #endif
