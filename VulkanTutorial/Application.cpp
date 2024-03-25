@@ -35,6 +35,7 @@ Application::Application(int width, int height) :
 	m_SwapChainImageViews{},
 	m_VertexShader{},
 	m_FragmentShader{},
+	m_RenderPass{},
 	m_PipeLineLayout{}
 {
 	InitializeWindow();
@@ -44,6 +45,7 @@ Application::Application(int width, int height) :
 Application::~Application()
 {
 	vkDestroyPipelineLayout(m_Device, m_PipeLineLayout, nullptr);
+	vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
 	vkDestroyShaderModule(m_Device, m_VertexShader, nullptr);
 	vkDestroyShaderModule(m_Device, m_FragmentShader, nullptr);
 	for (auto imageView : m_SwapChainImageViews)
@@ -102,6 +104,7 @@ void Application::InitializeVulkan()
 	if (CreateSwapChain() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain!");
 	RetrieveSwapChainImages();
 	if (CreateSwapChainImageViews() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain image views!");
+	if (CreateRenderPass() != VK_SUCCESS) throw std::runtime_error("failed to create render pass!");
 	if (CreateGraphicsPipeline() != VK_SUCCESS) throw std::runtime_error("failed to create grahpics pipeline!");
 }
 
@@ -508,4 +511,39 @@ VkResult Application::CreateGraphicsPipeline()
 	if (vkCreatePipelineLayout(m_Device, &pipelineLayoutInfo, nullptr, &m_PipeLineLayout) != VK_SUCCESS) throw std::runtime_error("failed to create pipeline layout!");
 
 	return VK_SUCCESS;
+}
+
+VkResult Application::CreateRenderPass()
+{
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentDescription.html
+	VkAttachmentDescription colorAttachment{};
+	colorAttachment.format = m_ImageFormat;
+	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentReference.html
+	VkAttachmentReference colorAttachmentRef{};
+	colorAttachmentRef.attachment = 0;
+	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription.html
+	VkSubpassDescription subpass{};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &colorAttachmentRef;
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassCreateInfo.html
+	VkRenderPassCreateInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments = &colorAttachment;
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpass;
+
+	return vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_RenderPass);
 }

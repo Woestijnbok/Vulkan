@@ -35,6 +35,7 @@ private:
     void RetrieveQueueHandles();
     void RetrieveSwapChainImages();
     VkResult CreateSwapChainImageViews();
+    VkResult CreateRenderPass();
     VkResult CreateGraphicsPipeline();
 
     int m_Width;
@@ -57,6 +58,7 @@ private:
     std::vector<VkImageView> m_SwapChainImageViews;
     VkShaderModule m_VertexShader;
     VkShaderModule m_FragmentShader;
+    VkRenderPass m_RenderPass;
     VkPipelineLayout m_PipeLineLayout;
 };
 
