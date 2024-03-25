@@ -35,6 +35,7 @@ private:
     void RetrieveQueueHandles();
     void RetrieveSwapChainImages();
     VkResult CreateSwapChainImageViews();
+    VkResult CreateGraphicsPipeline();
 
     int m_Width;
     int m_Height;

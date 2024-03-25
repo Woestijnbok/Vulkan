@@ -96,6 +96,7 @@ void Application::InitializeVulkan()
 	if (CreateSwapChain() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain!");
 	RetrieveSwapChainImages();
 	if (CreateSwapChainImageViews() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain image views!");
+	if (CreateGraphicsPipeline() != VK_SUCCESS) throw std::runtime_error("failed to create grahpics pipeline!");
 }
 
 bool Application::ExtensionsPresent()
@@ -394,5 +395,10 @@ VkResult Application::CreateSwapChainImageViews()
 		if (result != VK_SUCCESS) return result;
 	}
 
+	return VK_SUCCESS;
+}
+
+VkResult Application::CreateGraphicsPipeline()
+{
 	return VK_SUCCESS;
 }
