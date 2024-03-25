@@ -36,7 +36,8 @@ Application::Application(int width, int height) :
 	m_VertexShader{},
 	m_FragmentShader{},
 	m_RenderPass{},
-	m_PipeLineLayout{}
+	m_PipeLineLayout{},
+	m_PipeLine{}
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -44,6 +45,7 @@ Application::Application(int width, int height) :
 
 Application::~Application()
 {
+	vkDestroyPipeline(m_Device, m_PipeLine, nullptr);
 	vkDestroyPipelineLayout(m_Device, m_PipeLineLayout, nullptr);
 	vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
 	vkDestroyShaderModule(m_Device, m_VertexShader, nullptr);
@@ -510,7 +512,23 @@ VkResult Application::CreateGraphicsPipeline()
 
 	if (vkCreatePipelineLayout(m_Device, &pipelineLayoutInfo, nullptr, &m_PipeLineLayout) != VK_SUCCESS) throw std::runtime_error("failed to create pipeline layout!");
 
-	return VK_SUCCESS;
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html
+	VkGraphicsPipelineCreateInfo pipelineInfo{};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipelineInfo.stageCount = 2;
+	pipelineInfo.pStages = shaderStages;
+	pipelineInfo.pVertexInputState = &vertexInputInfo;
+	pipelineInfo.pInputAssemblyState = &inputAssembly;
+	pipelineInfo.pViewportState = &viewportState;
+	pipelineInfo.pRasterizationState = &rasterizer;
+	pipelineInfo.pMultisampleState = &multisampling;
+	pipelineInfo.pColorBlendState = &colorBlending;
+	pipelineInfo.pDynamicState = &dynamicState;
+	pipelineInfo.layout = m_PipeLineLayout;
+	pipelineInfo.renderPass = m_RenderPass;
+	pipelineInfo.subpass = 0;
+
+	return vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_PipeLine);
 }
 
 VkResult Application::CreateRenderPass()

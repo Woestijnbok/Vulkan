@@ -60,6 +60,7 @@ private:
     VkShaderModule m_FragmentShader;
     VkRenderPass m_RenderPass;
     VkPipelineLayout m_PipeLineLayout;
+    VkPipeline m_PipeLine;
 };
 
 #endif
