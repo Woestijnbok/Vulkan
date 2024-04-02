@@ -6,6 +6,8 @@ const bool g_EnableValidationlayers{ false };
 const bool g_EnableValidationlayers{ true };
 #endif
 
+const int g_MaxFramePerFlight{ 2 };
+
 #include <GLFW/glfw3.h>
 #include <stdexcept>
 #include <iostream>
@@ -40,10 +42,11 @@ Application::Application(int width, int height) :
 	m_PipeLine{},
 	m_SwapChainFrameBuffers{},
 	m_CommandPool{},
-	m_CommandBuffer{},
+	m_CommandBuffers{},
 	m_ImageAvailable{},
 	m_RenderFinished{},
-	m_InFlight{}
+	m_InFlight{},
+	m_CurrentFrame{}
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -51,9 +54,12 @@ Application::Application(int width, int height) :
 
 Application::~Application()
 {
-	vkDestroySemaphore(m_Device, m_ImageAvailable, nullptr);
-	vkDestroySemaphore(m_Device, m_RenderFinished, nullptr);
-	vkDestroyFence(m_Device, m_InFlight, nullptr);
+	for (int i{}; i < g_MaxFramePerFlight; ++i)
+	{
+		vkDestroySemaphore(m_Device, m_ImageAvailable[i], nullptr);
+		vkDestroySemaphore(m_Device, m_RenderFinished[i], nullptr);
+		vkDestroyFence(m_Device, m_InFlight[i], nullptr);
+	}
 	vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
 	for (auto frameBuffer : m_SwapChainFrameBuffers) vkDestroyFramebuffer(m_Device, frameBuffer, nullptr);
 	vkDestroyPipeline(m_Device, m_PipeLine, nullptr);
@@ -124,7 +130,7 @@ void Application::InitializeVulkan()
 	if (CreateGraphicsPipeline() != VK_SUCCESS) throw std::runtime_error("failed to create grahpics pipeline!");
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandPool() != VK_SUCCESS) throw std::runtime_error("failed to create command pool!");
-	if (CreateCommandBuffer() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
+	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
 }
 
@@ -635,16 +641,18 @@ VkResult Application::CreateCommandPool()
 	return vkCreateCommandPool(m_Device, &commandPoolCreateInfo, nullptr, &m_CommandPool);
 }
 
-VkResult Application::CreateCommandBuffer()
+VkResult Application::CreateCommandBuffers()
 {
-	VkCommandBufferAllocateInfo allocationInfo{};
+	m_CommandBuffers.resize(g_MaxFramePerFlight);
 
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandBufferAllocateInfo.html
+	VkCommandBufferAllocateInfo allocationInfo{};
 	allocationInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocationInfo.commandPool = m_CommandPool;
 	allocationInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocationInfo.commandBufferCount = 1;
+	allocationInfo.commandBufferCount = static_cast<uint32_t>(m_CommandBuffers.size());
 
-	return vkAllocateCommandBuffers(m_Device, &allocationInfo, &m_CommandBuffer);
+	return vkAllocateCommandBuffers(m_Device, &allocationInfo, m_CommandBuffers.data());
 }
 
 void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
@@ -655,7 +663,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	commandBufferbeginInfo.flags = 0;
 	commandBufferbeginInfo.pInheritanceInfo = nullptr;
 
-	if (vkBeginCommandBuffer(m_CommandBuffer, &commandBufferbeginInfo) != VK_SUCCESS)
+	if (vkBeginCommandBuffer(commandBuffer, &commandBufferbeginInfo) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to begin recording the command buffer");
 	}
@@ -701,28 +709,28 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
 void Application::DrawFrame()
 {
-	vkWaitForFences(m_Device, 1, &m_InFlight, VK_TRUE, UINT64_MAX);
-	vkResetFences(m_Device, 1, &m_InFlight);
+	vkWaitForFences(m_Device, 1, &m_InFlight[m_CurrentFrame], VK_TRUE, UINT64_MAX);
+	vkResetFences(m_Device, 1, &m_InFlight[m_CurrentFrame]);
 
 	uint32_t imageIndex;
-	vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT64_MAX, m_ImageAvailable, VK_NULL_HANDLE, &imageIndex);
+	vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT64_MAX, m_ImageAvailable[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
 
-	vkResetCommandBuffer(m_CommandBuffer, 0);
-	RecordCommandBuffer(m_CommandBuffer, imageIndex);
+	vkResetCommandBuffer(m_CommandBuffers[m_CurrentFrame], 0);
+	RecordCommandBuffer(m_CommandBuffers[m_CurrentFrame], imageIndex);
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubmitInfo.html
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	VkPipelineStageFlags waitStages[]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = &m_ImageAvailable;
+	submitInfo.pWaitSemaphores = &m_ImageAvailable[m_CurrentFrame];
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &m_CommandBuffer;
+	submitInfo.pCommandBuffers = &m_CommandBuffers[m_CurrentFrame];
 	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &m_RenderFinished;
+	submitInfo.pSignalSemaphores = &m_RenderFinished[m_CurrentFrame];
 
-	if (vkQueueSubmit(m_GrahicsQueue, 1, &submitInfo, m_InFlight) != VK_SUCCESS) 
+	if (vkQueueSubmit(m_GrahicsQueue, 1, &submitInfo, m_InFlight[m_CurrentFrame]) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to submit draw command buffer!");
 	}
@@ -731,17 +739,23 @@ void Application::DrawFrame()
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = &m_RenderFinished;
+	presentInfo.pWaitSemaphores = &m_RenderFinished[m_CurrentFrame];
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = &m_SwapChain;
 	presentInfo.pImageIndices = &imageIndex;
 
 	vkQueuePresentKHR(m_PresentQueue, &presentInfo);
+
+	m_CurrentFrame = (m_CurrentFrame + 1) % g_MaxFramePerFlight;
 }
 
 VkResult Application::CreateSyncObjects()
 {
 	VkResult result{ VK_SUCCESS };
+
+	m_ImageAvailable.resize(g_MaxFramePerFlight);
+	m_RenderFinished.resize(g_MaxFramePerFlight);
+	m_InFlight.resize(g_MaxFramePerFlight);
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSemaphoreCreateInfo.html
 	VkSemaphoreCreateInfo semaphoreCreateInfo{};
@@ -752,12 +766,18 @@ VkResult Application::CreateSyncObjects()
 	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-	result = vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_ImageAvailable);
-	if (result != VK_SUCCESS) return result;
+	for (int i{}; i < g_MaxFramePerFlight; ++i)
+	{
+		result = vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_ImageAvailable[i]);
+		if (result != VK_SUCCESS) return result;
 
-	result = vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_RenderFinished);
-	if (result != VK_SUCCESS) return result;
+		result = vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_RenderFinished[i]);
+		if (result != VK_SUCCESS) return result;
 
-	result = vkCreateFence(m_Device, &fenceCreateInfo, nullptr, &m_InFlight);
+		result = vkCreateFence(m_Device, &fenceCreateInfo, nullptr, &m_InFlight[i]);
+		if (result != VK_SUCCESS) return result;
+	}
+
+	
 	return result;
 }
