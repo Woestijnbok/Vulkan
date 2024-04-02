@@ -38,6 +38,9 @@ private:
     VkResult CreateRenderPass();
     VkResult CreateGraphicsPipeline();
     VkResult CreateSwapChainFrameBuffers();
+    VkResult CreateCommandPool();
+    VkResult CreateCommandBuffer();
+    void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     int m_Width;
     int m_Height;
@@ -63,6 +66,8 @@ private:
     VkPipelineLayout m_PipeLineLayout;
     VkPipeline m_PipeLine;
     std::vector<VkFramebuffer> m_SwapChainFrameBuffers;
+    VkCommandPool m_CommandPool;
+    VkCommandBuffer m_CommandBuffer;
 };
 
 #endif
