@@ -19,6 +19,7 @@ public:
     Application& operator=(Application&&) = delete;
 
 	void Run();
+    static void FrameBufferResizedCallback(GLFWwindow* window, int width, int height);
 
 private:
 
@@ -43,6 +44,8 @@ private:
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     void DrawFrame();
     VkResult CreateSyncObjects();
+    void RecreateSwapChain();
+    void CleanupSwapChain();
 
     int m_Width;
     int m_Height;
@@ -74,6 +77,7 @@ private:
     std::vector<VkSemaphore> m_RenderFinished;
     std::vector<VkFence> m_InFlight;
     uint32_t m_CurrentFrame;
+    bool m_FrameBufferResized;
 };
 
 #endif
