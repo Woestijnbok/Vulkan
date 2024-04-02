@@ -37,7 +37,8 @@ Application::Application(int width, int height) :
 	m_FragmentShader{},
 	m_RenderPass{},
 	m_PipeLineLayout{},
-	m_PipeLine{}
+	m_PipeLine{},
+	m_SwapChainFrameBuffers{}
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -45,6 +46,7 @@ Application::Application(int width, int height) :
 
 Application::~Application()
 {
+	for (auto frameBuffer : m_SwapChainFrameBuffers) vkDestroyFramebuffer(m_Device, frameBuffer, nullptr);
 	vkDestroyPipeline(m_Device, m_PipeLine, nullptr);
 	vkDestroyPipelineLayout(m_Device, m_PipeLineLayout, nullptr);
 	vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
@@ -108,6 +110,7 @@ void Application::InitializeVulkan()
 	if (CreateSwapChainImageViews() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain image views!");
 	if (CreateRenderPass() != VK_SUCCESS) throw std::runtime_error("failed to create render pass!");
 	if (CreateGraphicsPipeline() != VK_SUCCESS) throw std::runtime_error("failed to create grahpics pipeline!");
+	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 }
 
 bool Application::ExtensionsPresent()
@@ -564,4 +567,31 @@ VkResult Application::CreateRenderPass()
 	renderPassInfo.pSubpasses = &subpass;
 
 	return vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_RenderPass);
+}
+
+VkResult Application::CreateSwapChainFrameBuffers()
+{
+	VkResult result{ VK_SUCCESS };
+
+	m_SwapChainFrameBuffers.resize(m_SwapChainImageViews.size());
+
+	for (size_t i{0}; i < m_SwapChainImageViews.size(); ++i)
+	{
+		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html
+
+		VkFramebufferCreateInfo framebufferCreateInfo{};
+		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferCreateInfo.renderPass = m_RenderPass;
+		framebufferCreateInfo.attachmentCount = 1;
+		framebufferCreateInfo.pAttachments = &m_SwapChainImageViews[i];
+		framebufferCreateInfo.width = m_ImageExtend.width;
+		framebufferCreateInfo.height = m_ImageExtend.height;
+		framebufferCreateInfo.layers = 1;
+
+		result = vkCreateFramebuffer(m_Device, &framebufferCreateInfo, nullptr, &m_SwapChainFrameBuffers[i]);
+
+		if (result != VK_SUCCESS) return result;
+	}
+
+	return result;
 }

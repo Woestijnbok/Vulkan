@@ -37,6 +37,7 @@ private:
     VkResult CreateSwapChainImageViews();
     VkResult CreateRenderPass();
     VkResult CreateGraphicsPipeline();
+    VkResult CreateSwapChainFrameBuffers();
 
     int m_Width;
     int m_Height;
@@ -61,6 +62,7 @@ private:
     VkRenderPass m_RenderPass;
     VkPipelineLayout m_PipeLineLayout;
     VkPipeline m_PipeLine;
+    std::vector<VkFramebuffer> m_SwapChainFrameBuffers;
 };
 
 #endif
