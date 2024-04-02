@@ -41,6 +41,8 @@ private:
     VkResult CreateCommandPool();
     VkResult CreateCommandBuffer();
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void DrawFrame();
+    VkResult CreateSyncObjects();
 
     int m_Width;
     int m_Height;
@@ -68,6 +70,9 @@ private:
     std::vector<VkFramebuffer> m_SwapChainFrameBuffers;
     VkCommandPool m_CommandPool;
     VkCommandBuffer m_CommandBuffer;
+    VkSemaphore m_ImageAvailable;
+    VkSemaphore m_RenderFinished;
+    VkFence m_InFlight;
 };
 
 #endif

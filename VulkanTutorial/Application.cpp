@@ -40,7 +40,10 @@ Application::Application(int width, int height) :
 	m_PipeLine{},
 	m_SwapChainFrameBuffers{},
 	m_CommandPool{},
-	m_CommandBuffer{}
+	m_CommandBuffer{},
+	m_ImageAvailable{},
+	m_RenderFinished{},
+	m_InFlight{}
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -48,6 +51,9 @@ Application::Application(int width, int height) :
 
 Application::~Application()
 {
+	vkDestroySemaphore(m_Device, m_ImageAvailable, nullptr);
+	vkDestroySemaphore(m_Device, m_RenderFinished, nullptr);
+	vkDestroyFence(m_Device, m_InFlight, nullptr);
 	vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
 	for (auto frameBuffer : m_SwapChainFrameBuffers) vkDestroyFramebuffer(m_Device, frameBuffer, nullptr);
 	vkDestroyPipeline(m_Device, m_PipeLine, nullptr);
@@ -73,7 +79,10 @@ void Application::Run()
 	while (!glfwWindowShouldClose(m_Window))
 	{
 		glfwPollEvents();
+		DrawFrame();
 	}
+
+	vkDeviceWaitIdle(m_Device);
 }
 
 void Application::InitializeWindow()
@@ -116,6 +125,7 @@ void Application::InitializeVulkan()
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandPool() != VK_SUCCESS) throw std::runtime_error("failed to create command pool!");
 	if (CreateCommandBuffer() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
+	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
 }
 
 bool Application::ExtensionsPresent()
@@ -563,6 +573,15 @@ VkResult Application::CreateRenderPass()
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &colorAttachmentRef;
 
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDependency.html
+	VkSubpassDependency subpassDependency{};
+	subpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	subpassDependency.dstSubpass = 0;
+	subpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependency.srcAccessMask = 0;
+	subpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassCreateInfo.html
 	VkRenderPassCreateInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -570,6 +589,8 @@ VkResult Application::CreateRenderPass()
 	renderPassInfo.pAttachments = &colorAttachment;
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subpass;
+	renderPassInfo.dependencyCount = 1;
+	renderPassInfo.pDependencies = &subpassDependency;
 
 	return vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_RenderPass);
 }
@@ -676,4 +697,67 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	{
 		throw std::runtime_error("failed to record command buffer");
 	}
+}
+
+void Application::DrawFrame()
+{
+	vkWaitForFences(m_Device, 1, &m_InFlight, VK_TRUE, UINT64_MAX);
+	vkResetFences(m_Device, 1, &m_InFlight);
+
+	uint32_t imageIndex;
+	vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT64_MAX, m_ImageAvailable, VK_NULL_HANDLE, &imageIndex);
+
+	vkResetCommandBuffer(m_CommandBuffer, 0);
+	RecordCommandBuffer(m_CommandBuffer, imageIndex);
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubmitInfo.html
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	VkPipelineStageFlags waitStages[]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = &m_ImageAvailable;
+	submitInfo.pWaitDstStageMask = waitStages;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &m_CommandBuffer;
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &m_RenderFinished;
+
+	if (vkQueueSubmit(m_GrahicsQueue, 1, &submitInfo, m_InFlight) != VK_SUCCESS) 
+	{
+		throw std::runtime_error("failed to submit draw command buffer!");
+	}
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPresentInfoKHR.html
+	VkPresentInfoKHR presentInfo{};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = &m_RenderFinished;
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &m_SwapChain;
+	presentInfo.pImageIndices = &imageIndex;
+
+	vkQueuePresentKHR(m_PresentQueue, &presentInfo);
+}
+
+VkResult Application::CreateSyncObjects()
+{
+	VkResult result{ VK_SUCCESS };
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSemaphoreCreateInfo.html
+	VkSemaphoreCreateInfo semaphoreCreateInfo{};
+	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFenceCreateInfo.html
+	VkFenceCreateInfo fenceCreateInfo{};
+	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+	result = vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_ImageAvailable);
+	if (result != VK_SUCCESS) return result;
+
+	result = vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_RenderFinished);
+	if (result != VK_SUCCESS) return result;
+
+	result = vkCreateFence(m_Device, &fenceCreateInfo, nullptr, &m_InFlight);
+	return result;
 }
