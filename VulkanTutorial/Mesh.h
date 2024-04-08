@@ -18,8 +18,8 @@ struct Vertex final
 class Mesh final
 {
 public:
-	Mesh(const std::vector<Vertex>& vertices);
-	~Mesh() = default;
+	Mesh(VkPhysicalDevice physicalDevice, VkDevice device, const std::vector<Vertex>& vertices);
+	~Mesh();
 
 	Mesh(const Mesh&) = delete;
 	Mesh& operator=(const Mesh&) = delete;
@@ -27,9 +27,18 @@ public:
 	Mesh& operator=(Mesh&&) = delete;
 
 	const std::vector<Vertex>& GetVertices() const;
+	VkBuffer GetVertexBuffer() const;
 
 private:
+	VkPhysicalDevice m_PhysicalDevice;
+	VkDevice m_Device;
 	std::vector<Vertex> m_Vertices;
+	VkBuffer m_VertexBuffer;
+	VkDeviceMemory m_VertexBufferMemory;
+
+	VkResult CreateVertexBuffer();
+	VkResult AllocateVertexBuffer();
+	VkResult BindVertexBuffer();
 };
 
 #endif

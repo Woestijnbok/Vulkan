@@ -62,4 +62,6 @@ std::vector<char> LoadSPIRV(const std::filesystem::path& path);
 
 VkShaderModule CreateShaderModule(const std::vector<char>& buffer, VkDevice device);
 
+uint32_t FindMemoryTypeIndex(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
 #endif

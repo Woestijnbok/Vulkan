@@ -276,3 +276,21 @@ VkShaderModule CreateShaderModule(const std::vector<char>& buffer, VkDevice devi
 
     return shaderModule;
 }
+
+uint32_t FindMemoryTypeIndex(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPhysicalDeviceMemoryProperties.html
+    VkPhysicalDeviceMemoryProperties memoryProperties{};
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+
+    for (uint32_t i{ 0 }; i < memoryProperties.memoryTypeCount; ++i)
+    {
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkMemoryType.html
+        if ((typeFilter & (1 << i)) and ((memoryProperties.memoryTypes[i].propertyFlags & properties) == properties))
+        {
+            return i;
+        }
+    }
+
+    throw std::runtime_error("Failed to find suitable memory type!");
+}

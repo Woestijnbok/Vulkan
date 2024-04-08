@@ -51,13 +51,14 @@ Application::Application(int width, int height) :
 	m_FrameBufferResized{ false },
 	m_Mesh{ nullptr }
 {
-	InitializeMesh();
 	InitializeWindow();
 	InitializeVulkan();
+	InitializeMesh();
 }
 
 Application::~Application()
 {
+	delete m_Mesh;
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
 		vkDestroySemaphore(m_Device, m_ImageAvailable[i], nullptr);
@@ -77,7 +78,6 @@ Application::~Application()
 	vkDestroyInstance(m_Instance, nullptr);
 	glfwDestroyWindow(m_Window);
 	glfwTerminate();
-	delete m_Mesh;
 }
 
 void Application::Run()
@@ -100,7 +100,7 @@ void Application::InitializeMesh()
 		Vertex{ glm::vec2{ -0.5f, 0.5f }, glm::vec3{ 0.0f, 0.0f, 1.0f } }
 	};
 
-	m_Mesh = new Mesh{ vertices };
+	m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, vertices };
 }
 
 void Application::InitializeWindow()
@@ -718,7 +718,11 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	scissor.extent = m_ImageExtend;
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+	const VkBuffer vertexBuffers[]{ m_Mesh->GetVertexBuffer() };
+	const VkDeviceSize offsets[]{ 0 };
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+	vkCmdDraw(commandBuffer, static_cast<uint32_t>(m_Mesh->GetVertices().size()), 1, 0, 0);
 
 	vkCmdEndRenderPass(commandBuffer);
 
