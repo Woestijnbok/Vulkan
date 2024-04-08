@@ -294,3 +294,106 @@ uint32_t FindMemoryTypeIndex(VkPhysicalDevice physicalDevice, uint32_t typeFilte
 
     throw std::runtime_error("Failed to find suitable memory type!");
 }
+
+void CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) 
+{
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkBufferCreateInfo.html
+    const VkBufferCreateInfo bufferCreateInfo
+    {
+        VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,		// sType
+        nullptr,									// pNext
+        0,											// flags
+        size,			                            // size
+        usage,			                            // usage
+        VK_SHARING_MODE_EXCLUSIVE,					// sharingMode
+        0,											// queueFamilyIndexCount
+        0											// pQueueFamilyIndices
+    };
+
+    if (vkCreateBuffer(device, &bufferCreateInfo, nullptr, &buffer) != VK_SUCCESS) 
+    {
+        throw std::runtime_error("failed to create buffer!");
+    }
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkMemoryRequirements.html
+    VkMemoryRequirements memoryRequirements{};
+    vkGetBufferMemoryRequirements(device, buffer, &memoryRequirements);
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkMemoryAllocateInfo.html
+    const VkMemoryAllocateInfo memoryAllocateInfo
+    {
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,												// sType
+        nullptr,																			// pNext
+        memoryRequirements.size,															// allocationSize
+        FindMemoryTypeIndex																	// memoryTypeIndex
+        (
+            physicalDevice,
+            memoryRequirements.memoryTypeBits,
+            properties
+        )
+    };
+
+    if (vkAllocateMemory(device, &memoryAllocateInfo, nullptr, &bufferMemory) != VK_SUCCESS) 
+    {
+        throw std::runtime_error("failed to allocate buffer memory!");
+    }
+
+    vkBindBufferMemory(device, buffer, bufferMemory, 0);
+}
+
+void CopyBuffer(VkDevice device, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool, VkQueue queue) 
+{
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandBufferAllocateInfo.html
+    const VkCommandBufferAllocateInfo commandBufferAllocateInfo
+    {
+        VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,     // sType
+        nullptr,                                            // pNext
+        commandPool,                                        // commandPool
+        VK_COMMAND_BUFFER_LEVEL_PRIMARY,                    // level
+        1                                                   // commandBufferCount
+    };
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandBuffer.html
+    VkCommandBuffer commandBuffer{};
+    vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer);
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandBufferBeginInfo.html
+    const VkCommandBufferBeginInfo commandBufferBeginInfo
+    {
+        VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,        // sType
+        nullptr,                                            // pNext
+        VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,        // flags
+        nullptr                                             // pInheritanceInfo
+    };
+    vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkBufferCopy.html
+    const VkBufferCopy bufferCopy
+    {
+        0,          // srcOffset
+        0,          // dstOffset
+        size        // size
+    };
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &bufferCopy);
+
+    vkEndCommandBuffer(commandBuffer);
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubmitInfo.html
+    const VkSubmitInfo submitInfo
+    {
+        VK_STRUCTURE_TYPE_SUBMIT_INFO,      // sType
+        nullptr,                            // pNext
+        0,                                  // waitSemaphoreCount
+        nullptr,                            // pWaitSemaphores
+        nullptr,                            // pWaitDstStageMask
+        1,                                  // commandBufferCount
+        &commandBuffer,                     // pCommandBuffers
+        0,                                  // signalSemaphoreCount
+        nullptr                             // pSignalSemaphores
+    };
+
+    vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(queue);
+
+    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}

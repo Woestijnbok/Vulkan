@@ -100,7 +100,8 @@ void Application::InitializeMesh()
 		Vertex{ glm::vec2{ -0.5f, 0.5f }, glm::vec3{ 0.0f, 0.0f, 1.0f } }
 	};
 
-	m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, vertices };
+	// Graphics queue can handle copy commands, you could create a seperate command pool for copying buffers
+	m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, vertices };
 }
 
 void Application::InitializeWindow()

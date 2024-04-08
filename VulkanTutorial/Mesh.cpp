@@ -38,16 +38,16 @@ std::array<VkVertexInputAttributeDescription, 2> Vertex::GetAttributeDescription
 	return attributeDescriptions;
 }
 
-Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, const std::vector<Vertex>& vertices) :
+Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::vector<Vertex>& vertices) :
 	m_PhysicalDevice{ physicalDevice },
 	m_Device{ device },
+	m_CopyCommandPool{ copyCommandPool },
+	m_CopyQueue{ copyQueue },
 	m_Vertices{ vertices },
 	m_VertexBuffer{},
 	m_VertexBufferMemory{}
 {
 	if (CreateVertexBuffer() != VK_SUCCESS) throw std::runtime_error("Failed to create vertex buffer!");
-	if (AllocateVertexBuffer() != VK_SUCCESS) throw std::runtime_error("Failed to allocate memory for vertex buffer!");
-	if (BindVertexBuffer() != VK_SUCCESS) throw std::runtime_error("Failed to bind vertex buffer!");
 }
 
 Mesh::~Mesh()
@@ -68,56 +68,42 @@ VkBuffer Mesh::GetVertexBuffer() const
 
 VkResult Mesh::CreateVertexBuffer()
 {
-	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkBufferCreateInfo.html
-	const VkBufferCreateInfo bufferCreateInfo
-	{
-		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,		// sType
-		nullptr,									// pNext
-		0,											// flags
-		sizeof(Vertex) * m_Vertices.size(),			// size
-		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,			// usage
-		VK_SHARING_MODE_EXCLUSIVE,					// sharingMode
-		0,											// queueFamilyIndexCount
-		0											// pQueueFamilyIndices
-	};
-
-	return vkCreateBuffer(m_Device, &bufferCreateInfo, nullptr, &m_VertexBuffer);
-}
-
-VkResult Mesh::AllocateVertexBuffer()
-{
-	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkMemoryRequirements.html
-	VkMemoryRequirements memoryRequirements{};
-	vkGetBufferMemoryRequirements(m_Device, m_VertexBuffer, &memoryRequirements);
-
-	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkMemoryAllocateInfo.html
-	const VkMemoryAllocateInfo memoryAllocateInfo
-	{
-		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,												// sType
-		nullptr,																			// pNext
-		memoryRequirements.size,															// allocationSize
-		FindMemoryTypeIndex																	// memoryTypeIndex
-		(
-			m_PhysicalDevice,
-			memoryRequirements.memoryTypeBits,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-		)
-	};
-
-	return vkAllocateMemory(m_Device, &memoryAllocateInfo, nullptr, &m_VertexBufferMemory);
-}
-
-VkResult Mesh::BindVertexBuffer()
-{
 	VkResult result{};
 
-	result = vkBindBufferMemory(m_Device, m_VertexBuffer, m_VertexBufferMemory, 0);
-	if (result != VK_SUCCESS) return result;
+	VkBuffer stagingBuffer{};
+	VkDeviceMemory stagingBufferMemory{};
+
+	CreateBuffer
+	(
+		m_PhysicalDevice, 
+		m_Device, 
+		sizeof(Vertex) * m_Vertices.size(),
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+		stagingBuffer, 
+		stagingBufferMemory
+	);
 
 	void* data{};
-	result = vkMapMemory(m_Device, m_VertexBufferMemory, 0, sizeof(Vertex) * m_Vertices.size(), 0, &data);
+	result = vkMapMemory(m_Device, stagingBufferMemory, 0, sizeof(Vertex) * m_Vertices.size(), 0, &data);
 	memcpy(data, m_Vertices.data(), sizeof(Vertex) * m_Vertices.size());
-	vkUnmapMemory(m_Device, m_VertexBufferMemory);
+	vkUnmapMemory(m_Device, stagingBufferMemory);
+
+	CreateBuffer
+	(
+		m_PhysicalDevice,
+		m_Device,
+		sizeof(Vertex) * m_Vertices.size(),
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		m_VertexBuffer,
+		m_VertexBufferMemory
+	);
+
+	CopyBuffer(m_Device, stagingBuffer, m_VertexBuffer, sizeof(Vertex) * m_Vertices.size(), m_CopyCommandPool, m_CopyQueue);
+
+	vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
+	vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
 
 	return result;
 }
