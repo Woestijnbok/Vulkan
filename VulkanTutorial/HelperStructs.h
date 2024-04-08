@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.hpp>
 #include <optional>
 #include <vector>
+#include <glm/glm.hpp>
 
 struct QueueFamilyIndices
 {

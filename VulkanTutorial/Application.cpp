@@ -18,6 +18,7 @@ const int g_MaxFramePerFlight{ 2 };
 
 #include "Application.h"
 #include "HelperFunctions.h"
+#include "Mesh.h"
 
 Application::Application(int width, int height) :
 	m_Width{ width },
@@ -47,8 +48,10 @@ Application::Application(int width, int height) :
 	m_RenderFinished{},
 	m_InFlight{},
 	m_CurrentFrame{},
-	m_FrameBufferResized{ false }
+	m_FrameBufferResized{ false },
+	m_Mesh{ nullptr }
 {
+	InitializeMesh();
 	InitializeWindow();
 	InitializeVulkan();
 }
@@ -74,6 +77,7 @@ Application::~Application()
 	vkDestroyInstance(m_Instance, nullptr);
 	glfwDestroyWindow(m_Window);
 	glfwTerminate();
+	delete m_Mesh;
 }
 
 void Application::Run()
@@ -85,6 +89,18 @@ void Application::Run()
 	}
 
 	vkDeviceWaitIdle(m_Device);
+}
+
+void Application::InitializeMesh()
+{
+	const std::vector<Vertex> vertices
+	{
+		Vertex{ glm::vec2{ 0.0f, -0.5f }, glm::vec3{ 1.0f, 0.0f, 0.0f } },
+		Vertex{ glm::vec2{ 0.5f, 0.5f }, glm::vec3{ 0.0f, 1.0f, 0.0f } },
+		Vertex{ glm::vec2{ -0.5f, 0.5f }, glm::vec3{ 0.0f, 0.0f, 1.0f } }
+	};
+
+	m_Mesh = new Mesh{ vertices };
 }
 
 void Application::InitializeWindow()
@@ -452,13 +468,20 @@ VkResult Application::CreateGraphicsPipeline()
 
 	VkPipelineShaderStageCreateInfo shaderStages[2]{ vertShaderStageInfo, fragShaderStageInfo };
 
+	const auto vertexBindingDescription{ Vertex::GetBindingDescription() };
+	const auto vertexAttributeDescriptions{ Vertex::GetAttributeDescriptions() };
+
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineVertexInputStateCreateInfo.html
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 0;
-	vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
+	const VkPipelineVertexInputStateCreateInfo vertexInputStateCreateInfo
+	{
+		VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,		// sType
+		nullptr,														// pNext
+		0,																// flags
+		1,																// vertexBindingDescriptionCount
+		&vertexBindingDescription,										// pVertexBindingDescriptions
+		static_cast<uint32_t>(vertexAttributeDescriptions.size()),		// vertexAttributeDescriptionCount
+		vertexAttributeDescriptions.data()								// pVertexAttributeDescriptions
+	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineInputAssemblyStateCreateInfo.html
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -539,7 +562,7 @@ VkResult Application::CreateGraphicsPipeline()
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineInfo.stageCount = 2;
 	pipelineInfo.pStages = shaderStages;
-	pipelineInfo.pVertexInputState = &vertexInputInfo;
+	pipelineInfo.pVertexInputState = &vertexInputStateCreateInfo;
 	pipelineInfo.pInputAssemblyState = &inputAssembly;
 	pipelineInfo.pViewportState = &viewportState;
 	pipelineInfo.pRasterizationState = &rasterizer;

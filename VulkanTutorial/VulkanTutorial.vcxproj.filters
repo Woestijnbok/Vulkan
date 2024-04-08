@@ -10,6 +10,9 @@
     <Filter Include="Helper Structs">
       <UniqueIdentifier>{ddf2b982-b623-4a8d-aaba-0f1648945752}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Mesh">
+      <UniqueIdentifier>{79218b2c-9b1a-416e-8f8f-9414a2c71016}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp">
@@ -22,6 +25,9 @@
     <ClCompile Include="HelperStructs.cpp">
       <Filter>Helper Structs</Filter>
     </ClCompile>
+    <ClCompile Include="Mesh.cpp">
+      <Filter>Mesh</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -32,6 +38,9 @@
     </ClInclude>
     <ClInclude Include="HelperStructs.h">
       <Filter>Helper Structs</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>Mesh</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

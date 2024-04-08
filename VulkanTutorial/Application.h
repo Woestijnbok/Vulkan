@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.hpp>
 #include <vector>
 
+class Mesh;
 struct GLFWwindow;
 
 class Application
@@ -23,6 +24,7 @@ public:
 
 private:
 
+    void InitializeMesh();
     void InitializeWindow();
     void InitializeVulkan();
     bool ExtensionsPresent();
@@ -78,6 +80,7 @@ private:
     std::vector<VkFence> m_InFlight;
     uint32_t m_CurrentFrame;
     bool m_FrameBufferResized;
+    Mesh* m_Mesh;
 };
 
 #endif
