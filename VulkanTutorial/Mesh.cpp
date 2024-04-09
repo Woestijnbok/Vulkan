@@ -38,22 +38,39 @@ std::array<VkVertexInputAttributeDescription, 2> Vertex::GetAttributeDescription
 	return attributeDescriptions;
 }
 
-Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::vector<Vertex>& vertices) :
+Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indices) :
 	m_PhysicalDevice{ physicalDevice },
 	m_Device{ device },
 	m_CopyCommandPool{ copyCommandPool },
 	m_CopyQueue{ copyQueue },
 	m_Vertices{ vertices },
+	m_VertexStagingBuffer{},
 	m_VertexBuffer{},
-	m_VertexBufferMemory{}
+	m_VertexStagingBufferMemory{},
+	m_VertexBufferMemory{},
+	m_Indices{ indices },
+	m_IndexStagingBuffer{},
+	m_IndexBuffer{},
+	m_IndexStagingBufferMemory{},
+	m_IndexBufferMemory{}
 {
 	if (CreateVertexBuffer() != VK_SUCCESS) throw std::runtime_error("Failed to create vertex buffer!");
+	if (CreateIndexBuffer() != VK_SUCCESS) throw std::runtime_error("Failed to create index buffer!");
 }
 
 Mesh::~Mesh()
 {
+	// Vertex buffer
+	vkDestroyBuffer(m_Device, m_VertexStagingBuffer, nullptr);
+	vkFreeMemory(m_Device, m_VertexStagingBufferMemory, nullptr);
 	vkDestroyBuffer(m_Device, m_VertexBuffer, nullptr);
 	vkFreeMemory(m_Device, m_VertexBufferMemory, nullptr);
+
+	// Index buffer
+	vkDestroyBuffer(m_Device, m_IndexStagingBuffer, nullptr);
+	vkFreeMemory(m_Device, m_IndexStagingBufferMemory, nullptr);
+	vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
+	vkFreeMemory(m_Device, m_IndexBufferMemory, nullptr);
 }
 
 const std::vector<Vertex>& Mesh::GetVertices() const
@@ -66,12 +83,18 @@ VkBuffer Mesh::GetVertexBuffer() const
 	return m_VertexBuffer;
 }
 
+const std::vector<uint16_t> Mesh::GetIndices() const
+{
+	return m_Indices;
+}
+VkBuffer Mesh::GetIndexBuffer() const
+{
+	return m_IndexBuffer;
+}
+
 VkResult Mesh::CreateVertexBuffer()
 {
 	VkResult result{};
-
-	VkBuffer stagingBuffer{};
-	VkDeviceMemory stagingBufferMemory{};
 
 	CreateBuffer
 	(
@@ -80,14 +103,14 @@ VkResult Mesh::CreateVertexBuffer()
 		sizeof(Vertex) * m_Vertices.size(),
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-		stagingBuffer, 
-		stagingBufferMemory
+		m_VertexStagingBuffer, 
+		m_VertexStagingBufferMemory
 	);
 
 	void* data{};
-	result = vkMapMemory(m_Device, stagingBufferMemory, 0, sizeof(Vertex) * m_Vertices.size(), 0, &data);
+	result = vkMapMemory(m_Device, m_VertexStagingBufferMemory, 0, sizeof(Vertex) * m_Vertices.size(), 0, &data);
 	memcpy(data, m_Vertices.data(), sizeof(Vertex) * m_Vertices.size());
-	vkUnmapMemory(m_Device, stagingBufferMemory);
+	vkUnmapMemory(m_Device, m_VertexStagingBufferMemory);
 
 	CreateBuffer
 	(
@@ -100,10 +123,45 @@ VkResult Mesh::CreateVertexBuffer()
 		m_VertexBufferMemory
 	);
 
-	CopyBuffer(m_Device, stagingBuffer, m_VertexBuffer, sizeof(Vertex) * m_Vertices.size(), m_CopyCommandPool, m_CopyQueue);
+	CopyBuffer(m_Device, m_VertexStagingBuffer, m_VertexBuffer, sizeof(Vertex) * m_Vertices.size(), m_CopyCommandPool, m_CopyQueue);
 
-	vkDestroyBuffer(m_Device, stagingBuffer, nullptr);
-	vkFreeMemory(m_Device, stagingBufferMemory, nullptr);
+	return result;
+}
+
+VkResult Mesh::CreateIndexBuffer()
+{
+	VkResult result{};
+
+	const size_t bufferSize{ sizeof(uint16_t) * m_Indices.size() };
+
+	CreateBuffer
+	(
+		m_PhysicalDevice,
+		m_Device,
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		m_IndexStagingBuffer,
+		m_IndexStagingBufferMemory
+	);
+
+	void* data{};
+	result = vkMapMemory(m_Device, m_IndexStagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, m_Indices.data(), bufferSize);
+	vkUnmapMemory(m_Device, m_IndexStagingBufferMemory);
+
+	CreateBuffer
+	(
+		m_PhysicalDevice,
+		m_Device,
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		m_IndexBuffer,
+		m_IndexBufferMemory
+	);
+
+	CopyBuffer(m_Device, m_IndexStagingBuffer, m_IndexBuffer, bufferSize, m_CopyCommandPool, m_CopyQueue);
 
 	return result;
 }

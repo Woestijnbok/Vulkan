@@ -95,13 +95,20 @@ void Application::InitializeMesh()
 {
 	const std::vector<Vertex> vertices
 	{
-		Vertex{ glm::vec2{ 0.0f, -0.5f }, glm::vec3{ 1.0f, 0.0f, 0.0f } },
-		Vertex{ glm::vec2{ 0.5f, 0.5f }, glm::vec3{ 0.0f, 1.0f, 0.0f } },
-		Vertex{ glm::vec2{ -0.5f, 0.5f }, glm::vec3{ 0.0f, 0.0f, 1.0f } }
+		Vertex{ glm::vec2{ -0.5f, -0.5f }, glm::vec3{ 1.0f, 0.0f, 0.0f } },
+		Vertex{ glm::vec2{ 0.5f, -0.5f }, glm::vec3{ 0.0f, 1.0f, 0.0f } },
+		Vertex{ glm::vec2{ 0.5f, 0.5f }, glm::vec3{ 0.0f, 0.0f, 1.0f } },
+		Vertex{ glm::vec2{ -0.5f, 0.5f }, glm::vec3{ 1.0f, 1.0f, 1.0f } }
+	};
+
+	const std::vector<uint16_t> indices
+	{
+		0, 1, 2,	// triangle 1
+		2, 3, 0		// triangle 2
 	};
 
 	// Graphics queue can handle copy commands, you could create a seperate command pool for copying buffers
-	m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, vertices };
+	m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, vertices, indices };
 }
 
 void Application::InitializeWindow()
@@ -722,8 +729,9 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	const VkBuffer vertexBuffers[]{ m_Mesh->GetVertexBuffer() };
 	const VkDeviceSize offsets[]{ 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+	vkCmdBindIndexBuffer(commandBuffer, m_Mesh->GetIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
 
-	vkCmdDraw(commandBuffer, static_cast<uint32_t>(m_Mesh->GetVertices().size()), 1, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Mesh->GetIndices().size()), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(commandBuffer);
 

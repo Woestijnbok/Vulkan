@@ -18,7 +18,15 @@ struct Vertex final
 class Mesh final
 {
 public:
-	Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::vector<Vertex>& vertices);
+	Mesh
+	(
+		VkPhysicalDevice physicalDevice, 
+		VkDevice device, 
+		VkCommandPool copyCommandPool, 
+		VkQueue copyQueue, 
+		const std::vector<Vertex>& vertices, 
+		const std::vector<uint16_t>& indices
+	);
 	~Mesh();
 
 	Mesh(const Mesh&) = delete;
@@ -28,6 +36,8 @@ public:
 
 	const std::vector<Vertex>& GetVertices() const;
 	VkBuffer GetVertexBuffer() const;
+	const std::vector<uint16_t> GetIndices() const;
+	VkBuffer GetIndexBuffer() const;
 
 private:
 	VkPhysicalDevice m_PhysicalDevice;
@@ -35,10 +45,18 @@ private:
 	VkCommandPool m_CopyCommandPool;
 	VkQueue m_CopyQueue;
 	std::vector<Vertex> m_Vertices;
+	VkBuffer m_VertexStagingBuffer;
 	VkBuffer m_VertexBuffer;
+	VkDeviceMemory m_VertexStagingBufferMemory;
 	VkDeviceMemory m_VertexBufferMemory;
+	std::vector<uint16_t> m_Indices;
+	VkBuffer m_IndexStagingBuffer;
+	VkBuffer m_IndexBuffer;
+	VkDeviceMemory m_IndexStagingBufferMemory;
+	VkDeviceMemory m_IndexBufferMemory;
 
 	VkResult CreateVertexBuffer();
+	VkResult CreateIndexBuffer();
 };
 
 #endif
