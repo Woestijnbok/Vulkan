@@ -39,15 +39,18 @@ private:
     void RetrieveSwapChainImages();
     VkResult CreateSwapChainImageViews();
     VkResult CreateRenderPass();
+    VkResult CreateDescriptorSetLayout();
     VkResult CreateGraphicsPipeline();
     VkResult CreateSwapChainFrameBuffers();
     VkResult CreateCommandPool();
     VkResult CreateCommandBuffers();
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void UpdateUniformBuffer(uint32_t currentImage);
     void DrawFrame();
     VkResult CreateSyncObjects();
     void RecreateSwapChain();
     void CleanupSwapChain();
+    VkResult CreateUniformBuffers();
 
     int m_Width;
     int m_Height;
@@ -70,6 +73,7 @@ private:
     VkShaderModule m_VertexShader;
     VkShaderModule m_FragmentShader;
     VkRenderPass m_RenderPass;
+    VkDescriptorSetLayout m_DescriptorSetLayout;
     VkPipelineLayout m_PipeLineLayout;
     VkPipeline m_PipeLine;
     std::vector<VkFramebuffer> m_SwapChainFrameBuffers;
@@ -81,6 +85,9 @@ private:
     uint32_t m_CurrentFrame;
     bool m_FrameBufferResized;
     Mesh* m_Mesh;
+    std::vector<VkBuffer> m_UniformBuffers;
+    std::vector<VkDeviceMemory> m_UniformBufferMemories;
+    std::vector<void*> m_UniformBufferMaps;
 };
 
 #endif

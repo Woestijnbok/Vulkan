@@ -1,4 +1,5 @@
 #define GLFW_INCLUDE_VULKAN
+#define GLM_FORCE_RADIANS
 
 #ifdef NDEBUG
 const bool g_EnableValidationlayers{ false };
@@ -15,6 +16,9 @@ const int g_MaxFramePerFlight{ 2 };
 #include <iomanip>
 #include <cstring>
 #include <set>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <chrono>
 
 #include "Application.h"
 #include "HelperFunctions.h"
@@ -39,6 +43,7 @@ Application::Application(int width, int height) :
 	m_VertexShader{},
 	m_FragmentShader{},
 	m_RenderPass{},
+	m_DescriptorSetLayout{},
 	m_PipeLineLayout{},
 	m_PipeLine{},
 	m_SwapChainFrameBuffers{},
@@ -49,7 +54,10 @@ Application::Application(int width, int height) :
 	m_InFlight{},
 	m_CurrentFrame{},
 	m_FrameBufferResized{ false },
-	m_Mesh{ nullptr }
+	m_Mesh{ nullptr },
+	m_UniformBuffers{},
+	m_UniformBufferMemories{},
+	m_UniformBufferMaps{}
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -58,6 +66,11 @@ Application::Application(int width, int height) :
 
 Application::~Application()
 {
+	for (int i{}; i < g_MaxFramePerFlight; ++i)
+	{
+		vkDestroyBuffer(m_Device, m_UniformBuffers.at(i), nullptr);
+		vkFreeMemory(m_Device, m_UniformBufferMemories.at(i), nullptr);
+	}
 	delete m_Mesh;
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
@@ -69,6 +82,7 @@ Application::~Application()
 	CleanupSwapChain();
 	vkDestroyPipeline(m_Device, m_PipeLine, nullptr);
 	vkDestroyPipelineLayout(m_Device, m_PipeLineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(m_Device, m_DescriptorSetLayout, nullptr);
 	vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
 	vkDestroyShaderModule(m_Device, m_VertexShader, nullptr);
 	vkDestroyShaderModule(m_Device, m_FragmentShader, nullptr);
@@ -149,11 +163,13 @@ void Application::InitializeVulkan()
 	RetrieveSwapChainImages();
 	if (CreateSwapChainImageViews() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain image views!");
 	if (CreateRenderPass() != VK_SUCCESS) throw std::runtime_error("failed to create render pass!");
+	if (CreateDescriptorSetLayout() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor set layout!");
 	if (CreateGraphicsPipeline() != VK_SUCCESS) throw std::runtime_error("failed to create grahpics pipeline!");
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandPool() != VK_SUCCESS) throw std::runtime_error("failed to create command pool!");
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
+	if (CreateUniformBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create uniform buffers!");
 }
 
 bool Application::ExtensionsPresent()
@@ -455,6 +471,31 @@ VkResult Application::CreateSwapChainImageViews()
 	return VK_SUCCESS;
 }
 
+VkResult Application::CreateDescriptorSetLayout()
+{
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutBinding.html
+	const VkDescriptorSetLayoutBinding uniformBufferObjectDescriptorSetLayoutBinding
+	{
+		0,											// binding
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,			// descriptorType
+		1,											// descriptorCount
+		VK_SHADER_STAGE_VERTEX_BIT,					// stageFlags
+		nullptr										// pImmutableSamplers
+	};
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutCreateInfo.html
+	const VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo
+	{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,		// sType
+		nullptr,													// pNext
+		0,															// flags
+		1,															// bindingCount
+		&uniformBufferObjectDescriptorSetLayoutBinding				// pBindings
+	};
+
+	return vkCreateDescriptorSetLayout(m_Device, &descriptorSetLayoutCreateInfo, nullptr, &m_DescriptorSetLayout);
+}
+
 VkResult Application::CreateGraphicsPipeline()
 {
 	
@@ -560,10 +601,19 @@ VkResult Application::CreateGraphicsPipeline()
 	colorBlending.blendConstants[2] = 0.0f; // Optional
 	colorBlending.blendConstants[3] = 0.0f; // Optional
 
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineLayoutCreateInfo.html
+	const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo
+	{
+		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,		// sType
+		nullptr,											// pNext
+		0,													// flags
+		1,													// setLayoutCount
+		&m_DescriptorSetLayout,								// pSetLayouts
+		0,													// pushConstantRangeCount
+		nullptr												// pPushConstantRanges
+	};
 
-	if (vkCreatePipelineLayout(m_Device, &pipelineLayoutInfo, nullptr, &m_PipeLineLayout) != VK_SUCCESS) throw std::runtime_error("failed to create pipeline layout!");
+	if (vkCreatePipelineLayout(m_Device, &pipelineLayoutCreateInfo, nullptr, &m_PipeLineLayout) != VK_SUCCESS) throw std::runtime_error("failed to create pipeline layout!");
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -741,6 +791,23 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	}
 }
 
+void Application::UpdateUniformBuffer(uint32_t currentImage)
+{
+	static auto startTime{ std::chrono::high_resolution_clock::now() };
+	const auto currentTime{ std::chrono::high_resolution_clock::now() };
+	const float time{ std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count() };
+
+	UniformBufferObject matrices
+	{
+		glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+		glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+		glm::perspective(glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f)
+	};
+	matrices.ProjectionMatrix[1][1] *= -1;
+
+	memcpy(m_UniformBufferMaps[currentImage], &matrices, sizeof(UniformBufferObject));
+}
+
 void Application::DrawFrame()
 {
 	vkWaitForFences(m_Device, 1, &m_InFlight[m_CurrentFrame], VK_TRUE, UINT64_MAX);
@@ -756,6 +823,8 @@ void Application::DrawFrame()
 	{
 		throw std::runtime_error("failed to acquire the swap chain image");
 	}
+
+	UpdateUniformBuffer(m_CurrentFrame);
 
 	vkResetFences(m_Device, 1, &m_InFlight[m_CurrentFrame]);
 
@@ -877,4 +946,34 @@ void Application::FrameBufferResizedCallback(GLFWwindow* window, int width, int 
 
 	Application* app{ reinterpret_cast<Application*>(glfwGetWindowUserPointer(window)) };
 	app->m_FrameBufferResized = true;
+}
+
+VkResult Application::CreateUniformBuffers()
+{
+	VkResult result{};
+
+	const size_t bufferSize{ sizeof(UniformBufferObject) };
+
+	m_UniformBuffers.resize(g_MaxFramePerFlight);
+	m_UniformBufferMemories.resize(g_MaxFramePerFlight);
+	m_UniformBufferMaps.resize(g_MaxFramePerFlight);
+
+	for (size_t i{0}; i < g_MaxFramePerFlight; ++i)
+	{
+		CreateBuffer
+		(
+			m_PhysicalDevice,
+			m_Device,
+			bufferSize,
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			m_UniformBuffers.at(i),
+			m_UniformBufferMemories.at(i)
+		);
+
+		result = vkMapMemory(m_Device, m_UniformBufferMemories.at(i), 0, bufferSize, 0, &m_UniformBufferMaps.at(i));
+		if (result != VK_SUCCESS) return result;
+	}
+
+	return result;
 }
