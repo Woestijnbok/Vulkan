@@ -13,6 +13,9 @@
     <Filter Include="Mesh">
       <UniqueIdentifier>{79218b2c-9b1a-416e-8f8f-9414a2c71016}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Texture">
+      <UniqueIdentifier>{a7222234-310b-4ca7-9826-c55753fc562a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp">
@@ -28,6 +31,9 @@
     <ClCompile Include="Mesh.cpp">
       <Filter>Mesh</Filter>
     </ClCompile>
+    <ClCompile Include="Texture.cpp">
+      <Filter>Texture</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -41,6 +47,9 @@
     </ClInclude>
     <ClInclude Include="Mesh.h">
       <Filter>Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="Texture.h">
+      <Filter>Texture</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

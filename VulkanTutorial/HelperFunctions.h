@@ -86,4 +86,25 @@ void CopyBuffer
     VkQueue queue
 );
 
+void CreateImage
+(
+    VkPhysicalDevice physicalDevice,
+    VkDevice device,
+    VkExtent2D size,
+    VkFormat format,
+    VkImageTiling tiling, 
+    VkImageUsageFlags usage,
+    VkMemoryPropertyFlags properties,
+    VkImage& image,
+    VkDeviceMemory& memory
+);
+
+VkCommandBuffer BeginSingleTimeCommands(VkDevice device, VkCommandPool commandPool);
+
+void EndSingleTimeCommands(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkCommandBuffer commandBuffer);
+
+void TransitionImageLayout(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+
+void CopyBufferToImage(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+
 #endif

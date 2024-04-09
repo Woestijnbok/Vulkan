@@ -343,29 +343,7 @@ void CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize
 
 void CopyBuffer(VkDevice device, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool, VkQueue queue) 
 {
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandBufferAllocateInfo.html
-    const VkCommandBufferAllocateInfo commandBufferAllocateInfo
-    {
-        VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,     // sType
-        nullptr,                                            // pNext
-        commandPool,                                        // commandPool
-        VK_COMMAND_BUFFER_LEVEL_PRIMARY,                    // level
-        1                                                   // commandBufferCount
-    };
-
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandBuffer.html
-    VkCommandBuffer commandBuffer{};
-    vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer);
-
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandBufferBeginInfo.html
-    const VkCommandBufferBeginInfo commandBufferBeginInfo
-    {
-        VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,        // sType
-        nullptr,                                            // pNext
-        VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,        // flags
-        nullptr                                             // pInheritanceInfo
-    };
-    vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+    VkCommandBuffer commandBuffer{ BeginSingleTimeCommands(device, commandPool) };
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkBufferCopy.html
     const VkBufferCopy bufferCopy
@@ -376,24 +354,234 @@ void CopyBuffer(VkDevice device, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevic
     };
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &bufferCopy);
 
+    EndSingleTimeCommands(device, commandPool, queue, commandBuffer);
+}
+
+void CreateImage
+(
+    VkPhysicalDevice physicalDevice,
+    VkDevice device,
+    VkExtent2D size,
+    VkFormat format,
+    VkImageTiling tiling,
+    VkImageUsageFlags usage,
+    VkMemoryPropertyFlags properties,
+    VkImage& image,
+    VkDeviceMemory& memory
+)
+{
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html
+    const VkImageCreateInfo imageCreateInfo
+    {
+        VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,                                        // sType
+        nullptr,                                                                    // pNext
+        0,                                                                          // flags
+        VK_IMAGE_TYPE_2D,                                                           // imageType
+        format,                                                                     // format
+        VkExtent3D{ size.width, size.height, 1 },                                   // extent
+        1,                                                                          // mipLevels
+        1,                                                                          // arrayLayers
+        VK_SAMPLE_COUNT_1_BIT,                                                      // samples
+        tiling,                                                                     // tiling
+        usage,                                                                      // usage
+        VK_SHARING_MODE_EXCLUSIVE,                                                  // sharingMode
+        0,                                                                          // queueFamilyIndexCount
+        nullptr,                                                                    // pQueueFamilyIndices
+        VK_IMAGE_LAYOUT_UNDEFINED                                                   // initialLayout
+    };
+
+    if (vkCreateImage(device, &imageCreateInfo, nullptr, &image) != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to create image!");
+    }
+
+    VkMemoryRequirements memoryRequirements{};
+    vkGetImageMemoryRequirements(device, image, &memoryRequirements);
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkMemoryAllocateInfo.html
+    const VkMemoryAllocateInfo memoryAllocateInfo
+    {
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,             // sType                                       
+        nullptr,                                            // pNext
+        memoryRequirements.size,                            // allocationSize
+        FindMemoryTypeIndex                                 // memoryTypeIndex
+        (
+            physicalDevice,
+            memoryRequirements.memoryTypeBits,
+            properties  
+        )
+    };
+
+    if (vkAllocateMemory(device, &memoryAllocateInfo, nullptr, &memory) != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to allocate image memory!");
+    }
+
+    vkBindImageMemory(device, image, memory, 0);
+}
+
+VkCommandBuffer BeginSingleTimeCommands(VkDevice device, VkCommandPool commandPool) 
+{
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandBufferAllocateInfo.html
+    const VkCommandBufferAllocateInfo commandBufferAllocateInfo
+    {
+        VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,             // sType
+        nullptr,                                                    // pNext
+        commandPool,                                                // commandPool
+        VK_COMMAND_BUFFER_LEVEL_PRIMARY,                            // level
+        1                                                           // commandBufferCount
+    };
+
+    VkCommandBuffer commandBuffer{};
+    vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, &commandBuffer);
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandBufferBeginInfo.html
+    const VkCommandBufferBeginInfo commandBufferBeginInfo
+    {
+        VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,                // sType
+        nullptr,                                                    // pNext
+        VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,                // flags
+        nullptr                                                     // pInheritanceInfo
+    };
+
+    vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
+
+    return commandBuffer;
+}
+
+void EndSingleTimeCommands(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkCommandBuffer commandBuffer) 
+{
     vkEndCommandBuffer(commandBuffer);
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubmitInfo.html
-    const VkSubmitInfo submitInfo
+    VkSubmitInfo submitInfo
     {
-        VK_STRUCTURE_TYPE_SUBMIT_INFO,      // sType
-        nullptr,                            // pNext
-        0,                                  // waitSemaphoreCount
-        nullptr,                            // pWaitSemaphores
-        nullptr,                            // pWaitDstStageMask
-        1,                                  // commandBufferCount
-        &commandBuffer,                     // pCommandBuffers
-        0,                                  // signalSemaphoreCount
-        nullptr                             // pSignalSemaphores
+        VK_STRUCTURE_TYPE_SUBMIT_INFO,              // sType
+        nullptr,                                    // pNext
+        0,                                          // waitSemaphoreCount
+        nullptr,                                    // pWaitSemaphores
+        nullptr,                                    // pWaitDstStageMask
+        1,                                          // commandBufferCount
+        &commandBuffer,                             // pCommandBuffers
+        0,                                          // signalSemaphoreCount
+        nullptr                                     // pSignalSempahores
     };
 
     vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(queue);
 
-    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+    vkFreeCommandBuffers(device, commandpool, 1, &commandBuffer);
+}
+
+void TransitionImageLayout(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) 
+{
+    VkCommandBuffer commandBuffer{ BeginSingleTimeCommands(device, commandpool) };
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageMemoryBarrier.html
+    VkImageMemoryBarrier imageMemoryBarrier
+    {
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,             // sType
+        nullptr,                                            // pNext
+        0,                                                  // srcAccesMask
+        0,                                                  // dstAccessMask
+        oldLayout,                                          // oldLayout
+        newLayout,                                          // newLayout
+        VK_QUEUE_FAMILY_IGNORED,                            // srcQueueFamilyIndex
+        VK_QUEUE_FAMILY_IGNORED,                            // dstQueueFamilyIndex
+        image,                                              // image
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceRange.html
+        VkImageSubresourceRange                             // subresourceRange
+        {
+            VK_IMAGE_ASPECT_COLOR_BIT,          // aspectMask
+            0,                                  // baseMipLevel
+            1,                                  // levelCount
+            0,                                  // baseArrayLayer
+            1                                   // layerCount
+        }   
+    };
+
+    VkPipelineStageFlags sourceStage{};
+    VkPipelineStageFlags destinationStage{};
+
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) 
+    {
+        imageMemoryBarrier.srcAccessMask = 0;
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
+    {
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    else 
+    {
+        throw std::invalid_argument("unsupported layout transition!");
+    }
+
+    vkCmdPipelineBarrier
+    (
+        commandBuffer,
+        sourceStage, destinationStage,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &imageMemoryBarrier
+    );
+
+    EndSingleTimeCommands(device, commandpool, queue, commandBuffer);
+
+    format;
+}
+
+void CopyBufferToImage(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) 
+{
+    VkCommandBuffer commandBuffer{ BeginSingleTimeCommands(device, commandpool ) };
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkBufferImageCopy.html
+    const VkBufferImageCopy bufferImageCopy
+    {
+        0,                                                                      // bufferOffset
+        0,                                                                      // bufferRowLength
+        0,                                                                      // bufferImageHeight
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceLayers.html
+        VkImageSubresourceLayers                                                // imageSubresource
+        {
+            VK_IMAGE_ASPECT_COLOR_BIT,          // aspectMask
+            0,                                  // mipLevel
+            0,                                  // baseArrayLayer
+            1                                   // layerCount
+        },
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkOffset3D.html
+        VkOffset3D                                                              // imageOffset
+        { 
+            0,                                  // x
+            0,                                  // y
+            0                                   // z
+        },
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkExtent3D.html
+        VkExtent3D                                                              // imageExtent
+        { 
+            width,                              // width
+            height,                             // height
+            1                                   // depth
+        }
+    };
+
+    vkCmdCopyBufferToImage
+    (
+        commandBuffer,
+        buffer,
+        image,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &bufferImageCopy
+    );
+
+    EndSingleTimeCommands(device, commandpool, queue, commandBuffer);
 }

@@ -5,6 +5,7 @@
 #include <vector>
 
 class Mesh;
+class Texture;
 struct GLFWwindow;
 
 class Application
@@ -92,6 +93,7 @@ private:
     std::vector<void*> m_UniformBufferMaps;
     VkDescriptorPool m_DescriptorPool;
     std::vector<VkDescriptorSet> m_DescriptorSets;
+    Texture* m_BaseColorTexture;
 };
 
 #endif

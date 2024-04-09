@@ -23,6 +23,7 @@ const int g_MaxFramePerFlight{ 2 };
 #include "Application.h"
 #include "HelperFunctions.h"
 #include "Mesh.h"
+#include "Texture.h"
 
 Application::Application(int width, int height) :
 	m_Width{ width },
@@ -59,15 +60,19 @@ Application::Application(int width, int height) :
 	m_UniformBufferMemories{},
 	m_UniformBufferMaps{},
 	m_DescriptorPool{},
-	m_DescriptorSets{}
+	m_DescriptorSets{},
+	m_BaseColorTexture{}
 {
 	InitializeWindow();
 	InitializeVulkan();
 	InitializeMesh();
+
+	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/test_texture.jpg" };
 }
 
 Application::~Application()
 {
+	delete m_BaseColorTexture;
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
 		vkDestroyBuffer(m_Device, m_UniformBuffers.at(i), nullptr);
