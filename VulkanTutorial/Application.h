@@ -51,6 +51,8 @@ private:
     void RecreateSwapChain();
     void CleanupSwapChain();
     VkResult CreateUniformBuffers();
+    VkResult CreateDescriptorPool();
+    VkResult CreateDescriptorSets();
 
     int m_Width;
     int m_Height;
@@ -88,6 +90,8 @@ private:
     std::vector<VkBuffer> m_UniformBuffers;
     std::vector<VkDeviceMemory> m_UniformBufferMemories;
     std::vector<void*> m_UniformBufferMaps;
+    VkDescriptorPool m_DescriptorPool;
+    std::vector<VkDescriptorSet> m_DescriptorSets;
 };
 
 #endif

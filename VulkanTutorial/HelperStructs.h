@@ -23,9 +23,9 @@ struct SwapChainSupportDetails final
 
 struct UniformBufferObject final
 {
-	glm::mat4 ModelMatrix;
-	glm::mat4 ViewMatrix;
-	glm::mat4 ProjectionMatrix;
+	alignas(16) glm::mat4 ModelMatrix;
+	alignas(16) glm::mat4 ViewMatrix;
+	alignas(16) glm::mat4 ProjectionMatrix;
 };
 
 #endif

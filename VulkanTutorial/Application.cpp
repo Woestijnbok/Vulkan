@@ -57,7 +57,9 @@ Application::Application(int width, int height) :
 	m_Mesh{ nullptr },
 	m_UniformBuffers{},
 	m_UniformBufferMemories{},
-	m_UniformBufferMaps{}
+	m_UniformBufferMaps{},
+	m_DescriptorPool{},
+	m_DescriptorSets{}
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -82,6 +84,7 @@ Application::~Application()
 	CleanupSwapChain();
 	vkDestroyPipeline(m_Device, m_PipeLine, nullptr);
 	vkDestroyPipelineLayout(m_Device, m_PipeLineLayout, nullptr);
+	vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(m_Device, m_DescriptorSetLayout, nullptr);
 	vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
 	vkDestroyShaderModule(m_Device, m_VertexShader, nullptr);
@@ -170,6 +173,8 @@ void Application::InitializeVulkan()
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
 	if (CreateUniformBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create uniform buffers!");
+	if (CreateDescriptorPool() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor pool!");
+	if (CreateDescriptorSets() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor sets!");
 }
 
 bool Application::ExtensionsPresent()
@@ -575,7 +580,7 @@ VkResult Application::CreateGraphicsPipeline()
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineMultisampleStateCreateInfo.html
@@ -780,6 +785,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	const VkDeviceSize offsets[]{ 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 	vkCmdBindIndexBuffer(commandBuffer, m_Mesh->GetIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipeLineLayout, 0, 1, &m_DescriptorSets.at(m_CurrentFrame), 0, nullptr);
 
 	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Mesh->GetIndices().size()), 1, 0, 0, 0);
 
@@ -973,6 +979,78 @@ VkResult Application::CreateUniformBuffers()
 
 		result = vkMapMemory(m_Device, m_UniformBufferMemories.at(i), 0, bufferSize, 0, &m_UniformBufferMaps.at(i));
 		if (result != VK_SUCCESS) return result;
+	}
+
+	return result;
+}
+
+VkResult Application::CreateDescriptorPool()
+{
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorPoolSize.html
+	const VkDescriptorPoolSize descriptorPoolSize
+	{
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// type
+		static_cast<uint32_t>(g_MaxFramePerFlight)		// descriptorCount
+	};
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorPoolCreateInfo.html
+	const VkDescriptorPoolCreateInfo descriptorPoolCreateInfo
+	{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,	// sType
+		nullptr,										// pNext
+		0,												// flags
+		static_cast<uint32_t>(g_MaxFramePerFlight),		// maxSets
+		1,												// poolSizeCount
+		&descriptorPoolSize								// pPoolSizes
+	};
+
+	return vkCreateDescriptorPool(m_Device, &descriptorPoolCreateInfo, nullptr, &m_DescriptorPool);
+}
+
+VkResult Application::CreateDescriptorSets()
+{
+	m_DescriptorSets.resize(g_MaxFramePerFlight);
+	std::vector<VkDescriptorSetLayout> descriptorSetlayouts{ g_MaxFramePerFlight, m_DescriptorSetLayout };
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetAllocateInfo.html
+	const VkDescriptorSetAllocateInfo descriptorSetAllocateInfo
+	{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,			// sType
+		nullptr,												// pNext
+		m_DescriptorPool,										// descriptorPool
+		static_cast<uint32_t>(g_MaxFramePerFlight),				// descriptorSetCount
+		descriptorSetlayouts.data()								// pSetLayouts
+	};
+
+	VkResult result{ vkAllocateDescriptorSets(m_Device, &descriptorSetAllocateInfo, m_DescriptorSets.data()) };
+	if (result != VK_SUCCESS) return result;
+
+	for (size_t i{ 0 }; i < g_MaxFramePerFlight; i++) 
+	{
+		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorBufferInfo.html
+		const VkDescriptorBufferInfo descriptorBufferInfo
+		{
+			m_UniformBuffers.at(i),				// buffer
+			0,									// offset
+			sizeof(UniformBufferObject)			// range
+		};
+
+		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkWriteDescriptorSet.html
+		const VkWriteDescriptorSet writeDescriptorSet
+		{
+			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,			// sType
+			nullptr,										// pNext
+			m_DescriptorSets.at(i),							// dstSet
+			0,												// dstBinding
+			0,												// dstArrayElement
+			1,												// descriptorCount
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// descriptorType
+			nullptr,										// pImageInfo
+			&descriptorBufferInfo,							// pBufferInfo
+			nullptr											// pTexelBufferView
+		};
+
+		vkUpdateDescriptorSets(m_Device, 1, &writeDescriptorSet, 0, nullptr);
 	}
 
 	return result;
