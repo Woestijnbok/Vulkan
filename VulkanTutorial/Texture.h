@@ -23,9 +23,9 @@ private:
 	VkQueue m_CopyQueu;
 	VkImage m_Image;						// VkImage is like a buffer but allows some easy of use for textures like 2D indexing
 	VkDeviceMemory m_ImageMemory;
+	VkImageView m_ImageView;
 
 	void LoadTexture(const std::filesystem::path& path);
-
 };
 
 #endif

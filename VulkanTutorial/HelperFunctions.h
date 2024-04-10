@@ -107,4 +107,6 @@ void TransitionImageLayout(VkDevice device, VkCommandPool commandpool, VkQueue q
 
 void CopyBufferToImage(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
+VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format);
+
 #endif

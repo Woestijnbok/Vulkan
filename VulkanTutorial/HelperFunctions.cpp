@@ -87,8 +87,11 @@ bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std
         SwapChainSupportDetails swapChainDetails{ QuerySwapChainSupportDetails(device, surface) };
         swapChainDetailsPresent = !swapChainDetails.Formats.empty() && !swapChainDetails.PresentModes.empty();
     }
+
+    VkPhysicalDeviceFeatures physicalDeviceFeatures{};
+    vkGetPhysicalDeviceFeatures(device, &physicalDeviceFeatures);
     
-    return queueFamiliesPresent and deviceExtensionPresent and swapChainDetailsPresent;
+    return queueFamiliesPresent and deviceExtensionPresent and swapChainDetailsPresent and physicalDeviceFeatures.samplerAnisotropy;
 }
 
 QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
@@ -584,4 +587,43 @@ void CopyBufferToImage(VkDevice device, VkCommandPool commandpool, VkQueue queue
     );
 
     EndSingleTimeCommands(device, commandpool, queue, commandBuffer);
+}
+
+VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format)
+{
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html
+    const VkImageViewCreateInfo imageViewcreateInfo
+    {
+        VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,				// sType
+        nullptr,												// pNext
+        0,														// flags
+        image,												    // image
+        VK_IMAGE_VIEW_TYPE_2D,									// viewType
+        format,								                    // format
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComponentMapping.html
+        VkComponentMapping										// components
+        {
+            VK_COMPONENT_SWIZZLE_IDENTITY,		// r
+            VK_COMPONENT_SWIZZLE_IDENTITY,		// g
+            VK_COMPONENT_SWIZZLE_IDENTITY,		// b
+            VK_COMPONENT_SWIZZLE_IDENTITY		// a
+        },
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceRange.html
+        VkImageSubresourceRange									// subresourceRange
+        {
+            VK_IMAGE_ASPECT_COLOR_BIT,			// aspectMask
+            0,									// baseMipLevel
+            1,									// levelCount
+            0,									// baseArrayLayer
+            1									// layerCount
+        }
+    };
+
+    VkImageView imageView{};
+    if (vkCreateImageView(device, &imageViewcreateInfo, nullptr, &imageView) != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to create texture image view!");
+    }
+
+    return imageView;
 }

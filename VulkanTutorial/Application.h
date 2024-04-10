@@ -54,6 +54,7 @@ private:
     VkResult CreateUniformBuffers();
     VkResult CreateDescriptorPool();
     VkResult CreateDescriptorSets();
+    void CreateTextureSampler();
 
     int m_Width;
     int m_Height;
@@ -94,6 +95,7 @@ private:
     VkDescriptorPool m_DescriptorPool;
     std::vector<VkDescriptorSet> m_DescriptorSets;
     Texture* m_BaseColorTexture;
+    VkSampler m_TextureSampler;
 };
 
 #endif

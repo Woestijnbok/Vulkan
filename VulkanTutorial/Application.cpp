@@ -61,7 +61,8 @@ Application::Application(int width, int height) :
 	m_UniformBufferMaps{},
 	m_DescriptorPool{},
 	m_DescriptorSets{},
-	m_BaseColorTexture{}
+	m_BaseColorTexture{},
+	m_TextureSampler{}
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -72,6 +73,7 @@ Application::Application(int width, int height) :
 
 Application::~Application()
 {
+	vkDestroySampler(m_Device, m_TextureSampler, nullptr);
 	delete m_BaseColorTexture;
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
@@ -180,6 +182,7 @@ void Application::InitializeVulkan()
 	if (CreateUniformBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create uniform buffers!");
 	if (CreateDescriptorPool() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor pool!");
 	if (CreateDescriptorSets() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor sets!");
+	CreateTextureSampler();
 }
 
 bool Application::ExtensionsPresent()
@@ -361,6 +364,7 @@ VkResult Application::CreateLogicalDevice()
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPhysicalDeviceFeatures.html
 	VkPhysicalDeviceFeatures physicalDeviceFeatures{};
+	physicalDeviceFeatures.samplerAnisotropy = VK_TRUE;
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDeviceCreateInfo.html
 	VkDeviceCreateInfo deviceCreateInfo{};
@@ -458,24 +462,7 @@ VkResult Application::CreateSwapChainImageViews()
 	m_SwapChainImageViews.resize(m_SwapChainImages.size());
 	for (size_t i{}; i < m_SwapChainImages.size(); ++i)
 	{
-		VkImageViewCreateInfo imageViewcreateInfo{};
-		imageViewcreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		imageViewcreateInfo.image = m_SwapChainImages.at(i);
-		imageViewcreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		imageViewcreateInfo.format = m_ImageFormat;
-		imageViewcreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewcreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewcreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewcreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewcreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageViewcreateInfo.subresourceRange.baseMipLevel = 0;
-		imageViewcreateInfo.subresourceRange.levelCount = 1;
-		imageViewcreateInfo.subresourceRange.baseArrayLayer = 0;
-		imageViewcreateInfo.subresourceRange.layerCount = 1;
-
-		VkResult result{ vkCreateImageView(m_Device, &imageViewcreateInfo, nullptr, &m_SwapChainImageViews.at(i)) };
-
-		if (result != VK_SUCCESS) return result;
+		m_SwapChainImageViews.at(i) = CreateImageView(m_Device, m_SwapChainImages.at(i), m_ImageFormat);
 	}
 
 	return VK_SUCCESS;
@@ -1059,4 +1046,38 @@ VkResult Application::CreateDescriptorSets()
 	}
 
 	return result;
+}
+
+void Application::CreateTextureSampler()	
+{
+	VkPhysicalDeviceProperties physicalDeviceProperties{};
+	vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSamplerCreateInfo.html
+	const VkSamplerCreateInfo samplerCreateInfo
+	{
+		VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,							// sType
+		nullptr,														// pNext
+		0,																// flags
+		VK_FILTER_LINEAR,												// magFilter
+		VK_FILTER_LINEAR,												// minFilter
+		VK_SAMPLER_MIPMAP_MODE_LINEAR,									// mipmapMode	
+		VK_SAMPLER_ADDRESS_MODE_REPEAT,									// addressModeU
+		VK_SAMPLER_ADDRESS_MODE_REPEAT,									// addressModeV
+		VK_SAMPLER_ADDRESS_MODE_REPEAT,									// addressModeW
+		0.0f,															// mipLodBias
+		VK_TRUE,														// anisotropyEnable
+		physicalDeviceProperties.limits.maxSamplerAnisotropy,			// maxAnisotropy
+		VK_FALSE,														// compareEnable
+		VK_COMPARE_OP_ALWAYS,											// compareOp	
+		0.0f,															// minLod
+		0.0f,															// maxLod
+		VK_BORDER_COLOR_INT_OPAQUE_BLACK,								// borderColor
+		VK_FALSE														// unnormalizedCoordinates
+	};
+
+	if (vkCreateSampler(m_Device, &samplerCreateInfo, nullptr, &m_TextureSampler) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create texture sampler!");
+	}
 }

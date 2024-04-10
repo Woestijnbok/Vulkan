@@ -6,69 +6,73 @@
 #include "HelperFunctions.h"
 
 Texture::Texture(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::filesystem::path& path) :
-    m_PhysicalDevice{ physicalDevice },
-    m_Device{ device },
-    m_CopyCommandPool{ copyCommandPool },
-    m_CopyQueu{ copyQueue },
-    m_Image{}, 
-    m_ImageMemory{}
+	m_PhysicalDevice{ physicalDevice },
+	m_Device{ device },
+	m_CopyCommandPool{ copyCommandPool },
+	m_CopyQueu{ copyQueue },
+	m_Image{},
+	m_ImageMemory{},
+	m_ImageView{}
 {
-    LoadTexture(path);
+	LoadTexture(path);
 }
 
 Texture::~Texture()
 {
-    vkDestroyImage(m_Device, m_Image, nullptr);
-    vkFreeMemory(m_Device, m_ImageMemory, nullptr);
+	vkDestroyImageView(m_Device, m_ImageView, nullptr);
+	vkDestroyImage(m_Device, m_Image, nullptr);
+	vkFreeMemory(m_Device, m_ImageMemory, nullptr);
 }
 
 void Texture::LoadTexture(const std::filesystem::path& path)
 {
-    if (!std::filesystem::exists(path)) throw std::runtime_error("Invalid texture file path given!");
+	if (!std::filesystem::exists(path)) throw std::runtime_error("Invalid texture file path given!");
 
-    int textureWidth{}, textureHeight{}, textureChannels{};
-    stbi_uc* pixels{ stbi_load(path.string().c_str(), &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha) };
-    const VkDeviceSize imageSize{ VkDeviceSize(textureWidth) * VkDeviceSize(textureHeight) * 4 };
+	int textureWidth{}, textureHeight{}, textureChannels{};
+	stbi_uc* pixels{ stbi_load(path.string().c_str(), &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha) };
+	const VkDeviceSize imageSize{ VkDeviceSize(textureWidth) * VkDeviceSize(textureHeight) * 4 };
 
-    if (!pixels) throw std::runtime_error("failed to load texture image!");
+	if (!pixels) throw std::runtime_error("failed to load texture image!");
 
-    VkBuffer stagingPixelBuffer{};
-    VkDeviceMemory stagingPixelBufferMemory{};
+	VkBuffer stagingPixelBuffer{};
+	VkDeviceMemory stagingPixelBufferMemory{};
 
-    CreateBuffer
-    (
-        m_PhysicalDevice,
-        m_Device,
-        imageSize,
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        stagingPixelBuffer,
-        stagingPixelBufferMemory
-    );
+	CreateBuffer
+	(
+		m_PhysicalDevice,
+		m_Device,
+		imageSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingPixelBuffer,
+		stagingPixelBufferMemory
+	);
 
-    void* data{};
-    vkMapMemory(m_Device, stagingPixelBufferMemory, 0, imageSize, 0, &data);
-    memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(m_Device, stagingPixelBufferMemory);
-    stbi_image_free(pixels);
+	void* data{};
+	vkMapMemory(m_Device, stagingPixelBufferMemory, 0, imageSize, 0, &data);
+	memcpy(data, pixels, static_cast<size_t>(imageSize));
+	vkUnmapMemory(m_Device, stagingPixelBufferMemory);
+	stbi_image_free(pixels);
 
-    CreateImage
-    (
-        m_PhysicalDevice,
-        m_Device,
-        VkExtent2D{ uint32_t(textureWidth), uint32_t(textureHeight) },
-        VK_FORMAT_R8G8B8A8_SRGB,
-        VK_IMAGE_TILING_OPTIMAL,
-        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        m_Image,    
-        m_ImageMemory   
-    );
+	CreateImage
+	(
+		m_PhysicalDevice,
+		m_Device,
+		VkExtent2D{ uint32_t(textureWidth), uint32_t(textureHeight) },
+		VK_FORMAT_R8G8B8A8_SRGB,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		m_Image,
+		m_ImageMemory
+	);
 
-    TransitionImageLayout(m_Device, m_CopyCommandPool, m_CopyQueu, m_Image,  VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    CopyBufferToImage(m_Device, m_CopyCommandPool, m_CopyQueu, stagingPixelBuffer, m_Image, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
-    TransitionImageLayout(m_Device, m_CopyCommandPool, m_CopyQueu, m_Image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	TransitionImageLayout(m_Device, m_CopyCommandPool, m_CopyQueu, m_Image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	CopyBufferToImage(m_Device, m_CopyCommandPool, m_CopyQueu, stagingPixelBuffer, m_Image, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
+	TransitionImageLayout(m_Device, m_CopyCommandPool, m_CopyQueu, m_Image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-    vkDestroyBuffer(m_Device, stagingPixelBuffer, nullptr);
-    vkFreeMemory(m_Device, stagingPixelBufferMemory, nullptr);
+	vkDestroyBuffer(m_Device, stagingPixelBuffer, nullptr);
+	vkFreeMemory(m_Device, stagingPixelBufferMemory, nullptr);
+
+	m_ImageView = CreateImageView(m_Device, m_Image, VK_FORMAT_R8G8B8A8_SRGB);
 }
