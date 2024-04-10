@@ -503,6 +503,20 @@ void TransitionImageLayout(VkDevice device, VkCommandPool commandpool, VkQueue q
         }   
     };
 
+    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) 
+    {
+        imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+        if (HasStencilComponent(format)) 
+        {
+            imageMemoryBarrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
+    }
+    else 
+    {
+        imageMemoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+
     VkPipelineStageFlags sourceStage{};
     VkPipelineStageFlags destinationStage{};
 
@@ -521,6 +535,14 @@ void TransitionImageLayout(VkDevice device, VkCommandPool commandpool, VkQueue q
 
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) 
+    {
+        imageMemoryBarrier.srcAccessMask = 0;
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     }
     else 
     {
@@ -589,7 +611,7 @@ void CopyBufferToImage(VkDevice device, VkCommandPool commandpool, VkQueue queue
     EndSingleTimeCommands(device, commandpool, queue, commandBuffer);
 }
 
-VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format)
+VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags)
 {
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html
     const VkImageViewCreateInfo imageViewcreateInfo
@@ -611,7 +633,7 @@ VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format)
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceRange.html
         VkImageSubresourceRange									// subresourceRange
         {
-            VK_IMAGE_ASPECT_COLOR_BIT,			// aspectMask
+            aspectFlags,			            // aspectMask
             0,									// baseMipLevel
             1,									// levelCount
             0,									// baseArrayLayer
@@ -626,4 +648,40 @@ VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format)
     }
 
     return imageView;
+}
+
+VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) 
+{
+    for (VkFormat format : candidates)
+    {
+        VkFormatProperties formatProperties{};
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &formatProperties);
+
+        if ((tiling == VK_IMAGE_TILING_LINEAR) and ((formatProperties.linearTilingFeatures & features) == features))
+        {
+            return format;
+        }
+        else if ((tiling == VK_IMAGE_TILING_OPTIMAL) and ((formatProperties.optimalTilingFeatures & features) == features))
+        {
+            return format;
+        }
+    }
+   
+    throw std::runtime_error("Failed to find supported format!");
+}
+
+VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice)
+{
+    return FindSupportedFormat
+    (
+        physicalDevice,
+        std::vector<VkFormat>{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+    );
+}
+
+bool HasStencilComponent(VkFormat format) 
+{
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }

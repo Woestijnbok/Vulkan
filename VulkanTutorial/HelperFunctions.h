@@ -107,6 +107,12 @@ void TransitionImageLayout(VkDevice device, VkCommandPool commandpool, VkQueue q
 
 void CopyBufferToImage(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
-VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format);
+VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+
+VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+
+VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice);
+
+bool HasStencilComponent(VkFormat format);
 
 #endif

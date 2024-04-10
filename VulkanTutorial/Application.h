@@ -55,6 +55,7 @@ private:
     VkResult CreateDescriptorPool();
     VkResult CreateDescriptorSets();
     void CreateTextureSampler();
+    void CreateDepthResources();
 
     int m_Width;
     int m_Height;
@@ -96,6 +97,9 @@ private:
     std::vector<VkDescriptorSet> m_DescriptorSets;
     Texture* m_BaseColorTexture;
     VkSampler m_TextureSampler;
+    VkImage m_DepthImage;
+    VkDeviceMemory m_DepthMemory;
+    VkImageView m_DepthImageView;
 };
 
 #endif

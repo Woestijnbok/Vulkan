@@ -9,5 +9,5 @@ layout(location = 0) out vec4 g_OutColor;
 
 void main()
 {
-	g_OutColor = vec4(g_InFragmentColor *  texture(g_Sampler, g_InTextureCoordinates).rgb, 1.0);
+	g_OutColor = texture(g_Sampler, g_InTextureCoordinates);
 }

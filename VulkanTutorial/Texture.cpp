@@ -79,5 +79,5 @@ void Texture::LoadTexture(const std::filesystem::path& path)
 	vkDestroyBuffer(m_Device, stagingPixelBuffer, nullptr);
 	vkFreeMemory(m_Device, stagingPixelBufferMemory, nullptr);
 
-	m_ImageView = CreateImageView(m_Device, m_Image, VK_FORMAT_R8G8B8A8_SRGB);
+	m_ImageView = CreateImageView(m_Device, m_Image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);	
 }

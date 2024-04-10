@@ -1,5 +1,6 @@
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #ifdef NDEBUG
 const bool g_EnableValidationlayers{ false };
@@ -62,7 +63,10 @@ Application::Application(int width, int height) :
 	m_DescriptorPool{},
 	m_DescriptorSets{},
 	m_BaseColorTexture{},
-	m_TextureSampler{}
+	m_TextureSampler{},
+	m_DepthImage{},
+	m_DepthMemory{},
+	m_DepthImageView{}
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -117,16 +121,24 @@ void Application::InitializeMesh()
 {
 	const std::vector<Vertex> vertices
 	{
-		Vertex{ glm::vec2{ -0.5f, -0.5f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, glm::vec2{ 1.0f, 0.0f } },
-		Vertex{ glm::vec2{ 0.5f, -0.5f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec2{ 0.0f, 0.0f } },
-		Vertex{ glm::vec2{ 0.5f, 0.5f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f } },
-		Vertex{ glm::vec2{ -0.5f, 0.5f }, glm::vec3{ 1.0f, 1.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f } }
+		Vertex{ glm::vec3{ -0.5f, -0.5f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, glm::vec2{ 1.0f, 0.0f } },
+		Vertex{ glm::vec3{ 0.5f, -0.5f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec2{ 0.0f, 0.0f } },
+		Vertex{ glm::vec3{ 0.5f, 0.5f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f } },
+		Vertex{ glm::vec3{ -0.5f, 0.5f, 0.0f }, glm::vec3{ 1.0f, 1.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f } },
+
+		Vertex{ glm::vec3{ -0.5f, -0.5f, -0.5f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, glm::vec2{ 0.0f, 0.0f } },
+		Vertex{ glm::vec3{ 0.5f, -0.5f, -0.5f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec2{ 1.0f, 0.0f } },
+		Vertex{ glm::vec3{ 0.5f, 0.5f, -0.5f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f } },
+		Vertex{ glm::vec3{ -0.5f, 0.5f, -0.5f }, glm::vec3{ 1.0f, 1.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f } }
 	};
 
 	const std::vector<uint16_t> indices
 	{
 		0, 1, 2,	// triangle 1
-		2, 3, 0		// triangle 2
+		2, 3, 0,	// triangle 2
+
+		4, 5, 6,	// triangle 3
+		6, 7, 4		// triangle 4
 	};
 
 	// Graphics queue can handle copy commands, you could create a seperate command pool for copying buffers
@@ -173,8 +185,9 @@ void Application::InitializeVulkan()
 	if (CreateRenderPass() != VK_SUCCESS) throw std::runtime_error("failed to create render pass!");
 	if (CreateDescriptorSetLayout() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor set layout!");
 	if (CreateGraphicsPipeline() != VK_SUCCESS) throw std::runtime_error("failed to create grahpics pipeline!");
-	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandPool() != VK_SUCCESS) throw std::runtime_error("failed to create command pool!");
+	CreateDepthResources();
+	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
 	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/test_texture.jpg" };
@@ -461,7 +474,7 @@ VkResult Application::CreateSwapChainImageViews()
 	m_SwapChainImageViews.resize(m_SwapChainImages.size());
 	for (size_t i{}; i < m_SwapChainImages.size(); ++i)
 	{
-		m_SwapChainImageViews.at(i) = CreateImageView(m_Device, m_SwapChainImages.at(i), m_ImageFormat);
+		m_SwapChainImageViews.at(i) = CreateImageView(m_Device, m_SwapChainImages.at(i), m_ImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
 	}
 
 	return VK_SUCCESS;
@@ -576,6 +589,23 @@ VkResult Application::CreateGraphicsPipeline()
 	viewportState.viewportCount = 1;
 	viewportState.scissorCount = 1;
 
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineDepthStencilStateCreateInfo.html
+	const VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilCreateInfo
+	{
+		VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,				// sType
+		nullptr,																// pNext
+		0,																		// flags
+		VK_TRUE,																// depthTestEnable
+		VK_TRUE,																// depthWriteEnable
+		VK_COMPARE_OP_LESS,														// depthCompareOp
+		VK_FALSE,																// depthBoundsTestEnable
+		VK_FALSE,																// stencilTestEnable
+		VkStencilOpState{},														// front
+		VkStencilOpState{},														// back
+		0.0f,																	// minDepthBounds
+		1.0f																	// maxDepthBounds
+	};
+
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineRasterizationStateCreateInfo.html
 	VkPipelineRasterizationStateCreateInfo rasterizer{};
 	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -625,68 +655,120 @@ VkResult Application::CreateGraphicsPipeline()
 	if (vkCreatePipelineLayout(m_Device, &pipelineLayoutCreateInfo, nullptr, &m_PipeLineLayout) != VK_SUCCESS) throw std::runtime_error("failed to create pipeline layout!");
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html
-	VkGraphicsPipelineCreateInfo pipelineInfo{};
-	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipelineInfo.stageCount = 2;
-	pipelineInfo.pStages = shaderStages;
-	pipelineInfo.pVertexInputState = &vertexInputStateCreateInfo;
-	pipelineInfo.pInputAssemblyState = &inputAssembly;
-	pipelineInfo.pViewportState = &viewportState;
-	pipelineInfo.pRasterizationState = &rasterizer;
-	pipelineInfo.pMultisampleState = &multisampling;
-	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.pDynamicState = &dynamicState;
-	pipelineInfo.layout = m_PipeLineLayout;
-	pipelineInfo.renderPass = m_RenderPass;
-	pipelineInfo.subpass = 0;
+	const VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo
+	{
+		VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,		// sType
+		nullptr,												// pNext
+		0,														// flags
+		2,														// stageCount
+		shaderStages,											// pStages
+		&vertexInputStateCreateInfo,							// pVertexInputState
+		&inputAssembly,											// pInputAssemblyState
+		nullptr,												// pTessellationState
+		&viewportState,											// pViewportState
+		&rasterizer,											// pRasterizationState
+		&multisampling,											// pMultisampleState
+		&pipelineDepthStencilCreateInfo,						// pDepthStencilState
+		&colorBlending,											// pColorBlendState
+		&dynamicState,											// pDynamicState
+		m_PipeLineLayout,										// layout
+		m_RenderPass,											// renderPass
+		0,														// subpass
+		nullptr,												// basePipelineHandle
+		0														// basePipelineIndex
+	};
 
-	return vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_PipeLine);
+	return vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, nullptr, &m_PipeLine);
 }
 
 VkResult Application::CreateRenderPass()
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentDescription.html
-	VkAttachmentDescription colorAttachment{};
-	colorAttachment.format = m_ImageFormat;
-	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
+	std::array<VkAttachmentDescription, 2> attachmentDescriptions
+	{
+		// color attachment
+		VkAttachmentDescription
+		{
+			0,													// flags
+			m_ImageFormat,										// format
+			VK_SAMPLE_COUNT_1_BIT,								// samples
+			VK_ATTACHMENT_LOAD_OP_CLEAR,						// loadOp
+			VK_ATTACHMENT_STORE_OP_STORE,						// storeOp
+			VK_ATTACHMENT_LOAD_OP_DONT_CARE,					// stencilLoadOp
+			VK_ATTACHMENT_STORE_OP_DONT_CARE,					// stencilStoreOp
+			VK_IMAGE_LAYOUT_UNDEFINED,							// initialLayout
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR						// finalLayout
+		},
+		// depth buffering attachment
+		VkAttachmentDescription	
+		{
+			0,																
+			FindDepthFormat(m_PhysicalDevice),					
+			VK_SAMPLE_COUNT_1_BIT,							
+			VK_ATTACHMENT_LOAD_OP_CLEAR,					
+			VK_ATTACHMENT_STORE_OP_DONT_CARE,				
+			VK_ATTACHMENT_LOAD_OP_DONT_CARE,					
+			VK_ATTACHMENT_STORE_OP_DONT_CARE,				
+			VK_IMAGE_LAYOUT_UNDEFINED,							
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL	
+		},
+	};
+	
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentReference.html
-	VkAttachmentReference colorAttachmentRef{};
-	colorAttachmentRef.attachment = 0;
-	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	const VkAttachmentReference depthAttachmentReference
+	{
+		1,														// attachment
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL		// layout	
+	};
+
+	const VkAttachmentReference colorAttachmentReference	
+	{
+		0,											
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL		
+	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription.html
-	VkSubpassDescription subpass{};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &colorAttachmentRef;
+	const VkSubpassDescription subpassDescription
+	{
+		0,											// flags
+		VK_PIPELINE_BIND_POINT_GRAPHICS,			// pipelineBindPoint
+		0,											// inputAttachmentCount
+		nullptr,									// pInputAttachments
+		1,											// colorAttachmentCount
+		&colorAttachmentReference,					// pColorAttachments
+		nullptr,									// pResolveAttachments
+		&depthAttachmentReference,					// pDepthStencilAttachment
+		0,											// preserveAttachmentCount
+		nullptr										// pPreserveAttachments
+	};		
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDependency.html
-	VkSubpassDependency subpassDependency{};
-	subpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	subpassDependency.dstSubpass = 0;
-	subpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	subpassDependency.srcAccessMask = 0;
-	subpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	subpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	const VkSubpassDependency subpassDependency
+	{
+		VK_SUBPASS_EXTERNAL,																			// srcSubpass
+		0,																								// dstSubpass
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,		// srcStageMask	
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,		// dstStageMask	
+		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,													// srcAccessMask	
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,			// dstAccessMask
+		0																								// dependencyFlags
+	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassCreateInfo.html
-	VkRenderPassCreateInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = 1;
-	renderPassInfo.pAttachments = &colorAttachment;
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
-	renderPassInfo.dependencyCount = 1;
-	renderPassInfo.pDependencies = &subpassDependency;
+	const VkRenderPassCreateInfo renderPassCreateInfo
+	{
+		VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,			// sType
+		nullptr,											// pNext
+		0,													// flags
+		uint32_t(attachmentDescriptions.size()),			// attachmentCount
+		attachmentDescriptions.data(),						// pAttachments
+		1,													// subpassCount
+		&subpassDescription,								// pSubpasses
+		1,													// dependencyCount
+		&subpassDependency									// pDependencies
+	};
 
-	return vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_RenderPass);
+	return vkCreateRenderPass(m_Device, &renderPassCreateInfo, nullptr, &m_RenderPass);
 }
 
 VkResult Application::CreateSwapChainFrameBuffers()
@@ -697,19 +779,23 @@ VkResult Application::CreateSwapChainFrameBuffers()
 
 	for (size_t i{ 0 }; i < m_SwapChainImageViews.size(); ++i)
 	{
+		const std::array<VkImageView, 2> attachments{ m_SwapChainImageViews.at(i), m_DepthImageView };
+
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html
+		const VkFramebufferCreateInfo frameBufferCreateInfo
+		{
+			VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,				// sType
+			nullptr,												// pNext
+			0,														// flags
+			m_RenderPass,											// renderPass
+			uint32_t(attachments.size()),							// AttachmentCount
+			attachments.data(),										// pAttachments
+			m_ImageExtend.width,									// width
+			m_ImageExtend.height,									// height
+			1														// layers
+		};
 
-		VkFramebufferCreateInfo framebufferCreateInfo{};
-		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferCreateInfo.renderPass = m_RenderPass;
-		framebufferCreateInfo.attachmentCount = 1;
-		framebufferCreateInfo.pAttachments = &m_SwapChainImageViews[i];
-		framebufferCreateInfo.width = m_ImageExtend.width;
-		framebufferCreateInfo.height = m_ImageExtend.height;
-		framebufferCreateInfo.layers = 1;
-
-		result = vkCreateFramebuffer(m_Device, &framebufferCreateInfo, nullptr, &m_SwapChainFrameBuffers[i]);
-
+		result = vkCreateFramebuffer(m_Device, &frameBufferCreateInfo, nullptr, &m_SwapChainFrameBuffers.at(i));
 		if (result != VK_SUCCESS) return result;
 	}
 
@@ -746,26 +832,42 @@ VkResult Application::CreateCommandBuffers()
 void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandBufferBeginInfo.html
-	VkCommandBufferBeginInfo commandBufferbeginInfo{};
-	commandBufferbeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	commandBufferbeginInfo.flags = 0;
-	commandBufferbeginInfo.pInheritanceInfo = nullptr;
+	const VkCommandBufferBeginInfo commandBufferBeginInfo
+	{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,			// sType
+		nullptr,												// pNext
+		0,														// flags
+		nullptr													// pInheritanceInfo
+	};
 
-	if (vkBeginCommandBuffer(commandBuffer, &commandBufferbeginInfo) != VK_SUCCESS)
+	if (vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to begin recording the command buffer");
 	}
 
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkClearValue.html
+	std::array<VkClearValue, 2> clearColors	
+	{
+		VkClearValue{ 0.0f, 0.0f, 0.0f, 1.0f },		
+		VkClearValue{ 1.0f, 1 }		
+	};
+
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html
-	VkRenderPassBeginInfo renderPassBeginInfo{};
-	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassBeginInfo.renderPass = m_RenderPass;
-	renderPassBeginInfo.framebuffer = m_SwapChainFrameBuffers[imageIndex];
-	renderPassBeginInfo.renderArea.offset = VkOffset2D{ 0, 0 };
-	renderPassBeginInfo.renderArea.extent = m_ImageExtend;
-	VkClearValue clearColor{ 0.0f, 0.0f, 0.0f, 1.0f };
-	renderPassBeginInfo.clearValueCount = 1;
-	renderPassBeginInfo.pClearValues = &clearColor;
+	const VkRenderPassBeginInfo renderPassBeginInfo
+	{
+		VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,													// sType
+		nullptr,																					// pNext
+		m_RenderPass,																				// renderPass
+		m_SwapChainFrameBuffers[imageIndex],														// framebuffer
+		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRect2D.html
+		VkRect2D																					// renderArea
+		{											
+			VkOffset2D{ 0, 0 },		// offset
+			m_ImageExtend			// extent
+		},
+		uint32_t(clearColors.size()),																// clearValueCount
+		clearColors.data()																			// pClearValues
+	};
 
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -931,11 +1033,16 @@ void Application::RecreateSwapChain()
 	if (CreateSwapChain() != VK_SUCCESS) throw std::runtime_error("Failed to recreate swap chain");
 	RetrieveSwapChainImages();
 	if (CreateSwapChainImageViews() != VK_SUCCESS) throw std::runtime_error("Failed to recreate swap chain image views");
+	CreateDepthResources();
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("Failed to recreate swap chain frame buffers");
 }
 
 void Application::CleanupSwapChain()
 {
+	vkDestroyImageView(m_Device, m_DepthImageView, nullptr);
+	vkDestroyImage(m_Device, m_DepthImage, nullptr);
+	vkFreeMemory(m_Device, m_DepthMemory, nullptr);
+
 	for (auto frameBuffer : m_SwapChainFrameBuffers)
 	{
 		vkDestroyFramebuffer(m_Device, frameBuffer, nullptr);
@@ -1126,4 +1233,26 @@ void Application::CreateTextureSampler()
 	{
 		throw std::runtime_error("Failed to create texture sampler!");
 	}
+}
+
+void Application::CreateDepthResources()
+{
+	VkFormat depthFormat{ FindDepthFormat(m_PhysicalDevice) };
+
+	CreateImage
+	(
+		m_PhysicalDevice, 
+		m_Device,
+		m_ImageExtend, 
+		depthFormat, 
+		VK_IMAGE_TILING_OPTIMAL, 
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+		m_DepthImage,
+		m_DepthMemory
+	);
+
+	m_DepthImageView = CreateImageView(m_Device, m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+	TransitionImageLayout(m_Device, m_CommandPool, m_GrahicsQueue, m_DepthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
