@@ -67,8 +67,6 @@ Application::Application(int width, int height) :
 	InitializeWindow();
 	InitializeVulkan();
 	InitializeMesh();
-
-	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/test_texture.jpg" };
 }
 
 Application::~Application()
@@ -119,10 +117,10 @@ void Application::InitializeMesh()
 {
 	const std::vector<Vertex> vertices
 	{
-		Vertex{ glm::vec2{ -0.5f, -0.5f }, glm::vec3{ 1.0f, 0.0f, 0.0f } },
-		Vertex{ glm::vec2{ 0.5f, -0.5f }, glm::vec3{ 0.0f, 1.0f, 0.0f } },
-		Vertex{ glm::vec2{ 0.5f, 0.5f }, glm::vec3{ 0.0f, 0.0f, 1.0f } },
-		Vertex{ glm::vec2{ -0.5f, 0.5f }, glm::vec3{ 1.0f, 1.0f, 1.0f } }
+		Vertex{ glm::vec2{ -0.5f, -0.5f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, glm::vec2{ 1.0f, 0.0f } },
+		Vertex{ glm::vec2{ 0.5f, -0.5f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec2{ 0.0f, 0.0f } },
+		Vertex{ glm::vec2{ 0.5f, 0.5f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f } },
+		Vertex{ glm::vec2{ -0.5f, 0.5f }, glm::vec3{ 1.0f, 1.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f } }
 	};
 
 	const std::vector<uint16_t> indices
@@ -143,7 +141,7 @@ void Application::InitializeWindow()
 	m_Window = glfwCreateWindow(m_Width, m_Height, "Vulkan", nullptr, nullptr);
 	glfwSetWindowUserPointer(m_Window, this);
 	glfwSetFramebufferSizeCallback(m_Window, &FrameBufferResizedCallback);
-	
+
 	if (m_Window == nullptr) throw std::runtime_error("failed to create window!");
 }
 
@@ -179,10 +177,11 @@ void Application::InitializeVulkan()
 	if (CreateCommandPool() != VK_SUCCESS) throw std::runtime_error("failed to create command pool!");
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
+	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/test_texture.jpg" };
+	CreateTextureSampler();
 	if (CreateUniformBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create uniform buffers!");
 	if (CreateDescriptorPool() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor pool!");
 	if (CreateDescriptorSets() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor sets!");
-	CreateTextureSampler();
 }
 
 bool Application::ExtensionsPresent()
@@ -240,12 +239,12 @@ bool Application::ValidationLayersPresent()
 	{
 		std::cout << std::setw(40) << std::left << validationLayerName;
 
-		if (std::ranges::find_if(validationLayers, 
+		if (std::ranges::find_if(validationLayers,
 			[&validationLayerName](const auto& validationLayer) -> bool
-				{ 
-					return strcmp(validationLayerName, validationLayer.layerName) == 0;
-				}
-			) != validationLayers.end())
+			{
+				return strcmp(validationLayerName, validationLayer.layerName) == 0;
+			}
+		) != validationLayers.end())
 		{
 			std::cout << std::setw(40) << std::left << "PRESENT";
 		}
@@ -383,7 +382,7 @@ VkResult Application::CreateLogicalDevice()
 	{
 		deviceCreateInfo.enabledLayerCount = 0;
 	}
-	
+
 	return vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device);
 }
 
@@ -471,13 +470,26 @@ VkResult Application::CreateSwapChainImageViews()
 VkResult Application::CreateDescriptorSetLayout()
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutBinding.html
-	const VkDescriptorSetLayoutBinding uniformBufferObjectDescriptorSetLayoutBinding
+	const std::array<VkDescriptorSetLayoutBinding, 2> descriptorSetLayoutBindings
 	{
-		0,											// binding
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,			// descriptorType
-		1,											// descriptorCount
-		VK_SHADER_STAGE_VERTEX_BIT,					// stageFlags
-		nullptr										// pImmutableSamplers
+		// Uniform buffer object
+		VkDescriptorSetLayoutBinding
+		{
+			0,											// binding
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,			// descriptorType
+			1,											// descriptorCount
+			VK_SHADER_STAGE_VERTEX_BIT,					// stageFlags
+			nullptr										// pImmutableSamplers
+		},
+		// texture + sampler
+		VkDescriptorSetLayoutBinding
+		{
+			1,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,	
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,		
+			nullptr
+		}
 	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutCreateInfo.html
@@ -486,8 +498,8 @@ VkResult Application::CreateDescriptorSetLayout()
 		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,		// sType
 		nullptr,													// pNext
 		0,															// flags
-		1,															// bindingCount
-		&uniformBufferObjectDescriptorSetLayoutBinding				// pBindings
+		uint32_t(descriptorSetLayoutBindings.size()),				// bindingCount
+		descriptorSetLayoutBindings.data()							// pBindings
 	};
 
 	return vkCreateDescriptorSetLayout(m_Device, &descriptorSetLayoutCreateInfo, nullptr, &m_DescriptorSetLayout);
@@ -495,7 +507,7 @@ VkResult Application::CreateDescriptorSetLayout()
 
 VkResult Application::CreateGraphicsPipeline()
 {
-	
+
 	m_VertexShader = CreateShaderModule(LoadSPIRV("shaders/vert.spv"), m_Device);
 	m_FragmentShader = CreateShaderModule(LoadSPIRV("shaders/frag.spv"), m_Device);
 
@@ -550,7 +562,7 @@ VkResult Application::CreateGraphicsPipeline()
 	scissor.extent = m_ImageExtend;
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDynamicState.html
-	std::vector<VkDynamicState> dynamicStates{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+	std::vector<VkDynamicState> dynamicStates{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineDynamicStateCreateInfo.html
 	VkPipelineDynamicStateCreateInfo dynamicState{};
@@ -683,7 +695,7 @@ VkResult Application::CreateSwapChainFrameBuffers()
 
 	m_SwapChainFrameBuffers.resize(m_SwapChainImageViews.size());
 
-	for (size_t i{0}; i < m_SwapChainImageViews.size(); ++i)
+	for (size_t i{ 0 }; i < m_SwapChainImageViews.size(); ++i)
 	{
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html
 
@@ -880,7 +892,7 @@ VkResult Application::CreateSyncObjects()
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSemaphoreCreateInfo.html
 	VkSemaphoreCreateInfo semaphoreCreateInfo{};
 	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	
+
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFenceCreateInfo.html
 	VkFenceCreateInfo fenceCreateInfo{};
 	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -898,7 +910,7 @@ VkResult Application::CreateSyncObjects()
 		if (result != VK_SUCCESS) return result;
 	}
 
-	
+
 	return result;
 }
 
@@ -924,7 +936,7 @@ void Application::RecreateSwapChain()
 
 void Application::CleanupSwapChain()
 {
-	for (auto frameBuffer : m_SwapChainFrameBuffers) 
+	for (auto frameBuffer : m_SwapChainFrameBuffers)
 	{
 		vkDestroyFramebuffer(m_Device, frameBuffer, nullptr);
 	}
@@ -956,7 +968,7 @@ VkResult Application::CreateUniformBuffers()
 	m_UniformBufferMemories.resize(g_MaxFramePerFlight);
 	m_UniformBufferMaps.resize(g_MaxFramePerFlight);
 
-	for (size_t i{0}; i < g_MaxFramePerFlight; ++i)
+	for (size_t i{ 0 }; i < g_MaxFramePerFlight; ++i)
 	{
 		CreateBuffer
 		(
@@ -979,21 +991,29 @@ VkResult Application::CreateUniformBuffers()
 VkResult Application::CreateDescriptorPool()
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorPoolSize.html
-	const VkDescriptorPoolSize descriptorPoolSize
+	std::array< VkDescriptorPoolSize, 2> descriptorPoolSizes
 	{
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// type
-		static_cast<uint32_t>(g_MaxFramePerFlight)		// descriptorCount
+		VkDescriptorPoolSize	
+		{
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// type
+			static_cast<uint32_t>(g_MaxFramePerFlight)		// descriptorCount
+		},
+		VkDescriptorPoolSize	
+		{
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,	
+			static_cast<uint32_t>(g_MaxFramePerFlight)		
+		}
 	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorPoolCreateInfo.html
 	const VkDescriptorPoolCreateInfo descriptorPoolCreateInfo
 	{
-		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,	// sType
-		nullptr,										// pNext
-		0,												// flags
-		static_cast<uint32_t>(g_MaxFramePerFlight),		// maxSets
-		1,												// poolSizeCount
-		&descriptorPoolSize								// pPoolSizes
+		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,					// sType
+		nullptr,														// pNext
+		0,																// flags
+		static_cast<uint32_t>(g_MaxFramePerFlight),						// maxSets
+		static_cast<uint32_t>(descriptorPoolSizes.size()),				// poolSizeCount
+		descriptorPoolSizes.data()										// pPoolSizes
 	};
 
 	return vkCreateDescriptorPool(m_Device, &descriptorPoolCreateInfo, nullptr, &m_DescriptorPool);
@@ -1017,7 +1037,7 @@ VkResult Application::CreateDescriptorSets()
 	VkResult result{ vkAllocateDescriptorSets(m_Device, &descriptorSetAllocateInfo, m_DescriptorSets.data()) };
 	if (result != VK_SUCCESS) return result;
 
-	for (size_t i{ 0 }; i < g_MaxFramePerFlight; i++) 
+	for (size_t i{ 0 }; i < g_MaxFramePerFlight; i++)
 	{
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorBufferInfo.html
 		const VkDescriptorBufferInfo descriptorBufferInfo
@@ -1027,28 +1047,54 @@ VkResult Application::CreateDescriptorSets()
 			sizeof(UniformBufferObject)			// range
 		};
 
-		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkWriteDescriptorSet.html
-		const VkWriteDescriptorSet writeDescriptorSet
+		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorImageInfo.html
+		const VkDescriptorImageInfo descriptorImageInfo
 		{
-			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,			// sType
-			nullptr,										// pNext
-			m_DescriptorSets.at(i),							// dstSet
-			0,												// dstBinding
-			0,												// dstArrayElement
-			1,												// descriptorCount
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// descriptorType
-			nullptr,										// pImageInfo
-			&descriptorBufferInfo,							// pBufferInfo
-			nullptr											// pTexelBufferView
+			m_TextureSampler,								// sampler
+			m_BaseColorTexture->GetImageView(),				// imageView
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
 		};
 
-		vkUpdateDescriptorSets(m_Device, 1, &writeDescriptorSet, 0, nullptr);
+		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkWriteDescriptorSet.html
+		std::array<VkWriteDescriptorSet, 2> writeDescriptorSets
+		{
+			// Uniform buffer object
+			VkWriteDescriptorSet
+			{
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,			// sType
+				nullptr,										// pNext
+				m_DescriptorSets.at(i),							// dstSet
+				0,												// dstBinding
+				0,												// dstArrayElement
+				1,												// descriptorCount
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// descriptorType
+				nullptr,										// pImageInfo
+				&descriptorBufferInfo,							// pBufferInfo
+				nullptr											// pTexelBufferView
+			},
+			// Texture + sampler
+			VkWriteDescriptorSet	
+			{
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,			
+				nullptr,										
+				m_DescriptorSets.at(i),						
+				1,												
+				0,												
+				1,												
+				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				&descriptorImageInfo,									
+				nullptr,						
+				nullptr											
+			},
+		};
+
+		vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 	}
 
 	return result;
 }
 
-void Application::CreateTextureSampler()	
+void Application::CreateTextureSampler()
 {
 	VkPhysicalDeviceProperties physicalDeviceProperties{};
 	vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
@@ -1062,9 +1108,9 @@ void Application::CreateTextureSampler()
 		VK_FILTER_LINEAR,												// magFilter
 		VK_FILTER_LINEAR,												// minFilter
 		VK_SAMPLER_MIPMAP_MODE_LINEAR,									// mipmapMode	
-		VK_SAMPLER_ADDRESS_MODE_REPEAT,									// addressModeU
-		VK_SAMPLER_ADDRESS_MODE_REPEAT,									// addressModeV
-		VK_SAMPLER_ADDRESS_MODE_REPEAT,									// addressModeW
+		VK_SAMPLER_ADDRESS_MODE_REPEAT,									// addressModeU	
+		VK_SAMPLER_ADDRESS_MODE_REPEAT,									// addressModeV	
+		VK_SAMPLER_ADDRESS_MODE_REPEAT,									// addressModeW	
 		0.0f,															// mipLodBias
 		VK_TRUE,														// anisotropyEnable
 		physicalDeviceProperties.limits.maxSamplerAnisotropy,			// maxAnisotropy

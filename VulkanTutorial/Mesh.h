@@ -10,9 +10,10 @@ struct Vertex final
 {
 	glm::vec2 Position;
 	glm::vec3 Color;
+	glm::vec2 TextureCoordinates;
 
 	static VkVertexInputBindingDescription GetBindingDescription();
-	static std::array<VkVertexInputAttributeDescription, 2> GetAttributeDescriptions();
+	static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions();
 };
 
 class Mesh final

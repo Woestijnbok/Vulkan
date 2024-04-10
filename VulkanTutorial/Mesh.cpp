@@ -14,11 +14,12 @@ VkVertexInputBindingDescription Vertex::GetBindingDescription()
 	return bindingDescription;
 }
 
-std::array<VkVertexInputAttributeDescription, 2> Vertex::GetAttributeDescriptions()
+std::array<VkVertexInputAttributeDescription, 3> Vertex::GetAttributeDescriptions()
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkVertexInputAttributeDescription.html
-	const std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions
+	const std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions
 	{
+		// Position
 		VkVertexInputAttributeDescription
 		{
 			0,								// location
@@ -26,12 +27,21 @@ std::array<VkVertexInputAttributeDescription, 2> Vertex::GetAttributeDescription
 			VK_FORMAT_R32G32_SFLOAT,		// format
 			offsetof(Vertex, Position)		// offset
 		},
+		// Color
 		VkVertexInputAttributeDescription
 		{
 			1,
 			0,
 			VK_FORMAT_R32G32B32_SFLOAT,
 			offsetof(Vertex, Color)
+		},
+		// Texture coordinates
+		VkVertexInputAttributeDescription
+		{
+			2,	
+			0,	
+			VK_FORMAT_R32G32_SFLOAT,	
+			offsetof(Vertex, TextureCoordinates)	
 		}
 	};
 

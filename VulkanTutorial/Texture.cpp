@@ -24,6 +24,11 @@ Texture::~Texture()
 	vkFreeMemory(m_Device, m_ImageMemory, nullptr);
 }
 
+VkImageView Texture::GetImageView() const
+{
+	return m_ImageView;
+}
+
 void Texture::LoadTexture(const std::filesystem::path& path)
 {
 	if (!std::filesystem::exists(path)) throw std::runtime_error("Invalid texture file path given!");

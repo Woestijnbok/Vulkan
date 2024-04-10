@@ -15,6 +15,7 @@ public:
 	Texture(Texture&&) = delete;
 	Texture& operator=(Texture&&) = delete;
 
+	VkImageView GetImageView() const;
 
 private:
 	VkPhysicalDevice m_PhysicalDevice;
