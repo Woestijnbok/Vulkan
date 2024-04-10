@@ -1,5 +1,15 @@
+#define TINYOBJLOADER_IMPLEMENTATION
+
+#include <tiny_obj_loader.h>
+#include <unordered_map>
+
 #include "Mesh.h"
 #include "HelperFunctions.h"
+
+bool Vertex::operator==(const Vertex& other) const
+{
+	return (Position == other.Position) and (Color == other.Color) and (TextureCoordinates == other.TextureCoordinates);
+}
 
 VkVertexInputBindingDescription Vertex::GetBindingDescription()
 {
@@ -48,7 +58,28 @@ std::array<VkVertexInputAttributeDescription, 3> Vertex::GetAttributeDescription
 	return attributeDescriptions;
 }
 
-Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::vector<Vertex>& vertices, const std::vector<uint16_t>& indices) :
+Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::filesystem::path& path) :
+	m_PhysicalDevice{ physicalDevice },
+	m_Device{ device },
+	m_CopyCommandPool{ copyCommandPool },
+	m_CopyQueue{ copyQueue },
+	m_Vertices{},
+	m_VertexStagingBuffer{},
+	m_VertexBuffer{},
+	m_VertexStagingBufferMemory{},
+	m_VertexBufferMemory{},
+	m_Indices{},
+	m_IndexStagingBuffer{},
+	m_IndexBuffer{},
+	m_IndexStagingBufferMemory{},
+	m_IndexBufferMemory{}
+{
+	LoadMesh(path);
+	if (CreateVertexBuffer() != VK_SUCCESS) throw std::runtime_error("Failed to create vertex buffer!");
+	if (CreateIndexBuffer() != VK_SUCCESS) throw std::runtime_error("Failed to create index buffer!");
+}
+
+Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) :
 	m_PhysicalDevice{ physicalDevice },
 	m_Device{ device },
 	m_CopyCommandPool{ copyCommandPool },
@@ -93,7 +124,7 @@ VkBuffer Mesh::GetVertexBuffer() const
 	return m_VertexBuffer;
 }
 
-const std::vector<uint16_t> Mesh::GetIndices() const
+const std::vector<uint32_t> Mesh::GetIndices() const
 {
 	return m_Indices;
 }
@@ -142,7 +173,7 @@ VkResult Mesh::CreateIndexBuffer()
 {
 	VkResult result{};
 
-	const size_t bufferSize{ sizeof(uint16_t) * m_Indices.size() };
+	const size_t bufferSize{ sizeof(uint32_t) * m_Indices.size() };
 
 	CreateBuffer
 	(
@@ -174,4 +205,52 @@ VkResult Mesh::CreateIndexBuffer()
 	CopyBuffer(m_Device, m_IndexStagingBuffer, m_IndexBuffer, bufferSize, m_CopyCommandPool, m_CopyQueue);
 
 	return result;
+}
+
+void Mesh::LoadMesh(const std::filesystem::path& path)
+{
+	if (!std::filesystem::exists(path)) throw std::runtime_error("Invalid texture file path given!");
+
+	tinyobj::attrib_t attributes{};
+	std::vector<tinyobj::shape_t> shapes{};
+	std::vector<tinyobj::material_t> materials{};
+	std::string error{};
+
+	if (!tinyobj::LoadObj(&attributes, &shapes, &materials, &error, path.string().c_str())) 
+	{
+		throw std::runtime_error(error);
+	}
+
+	std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
+	for (const auto& shape : shapes) 
+	{
+		for (const auto& index : shape.mesh.indices) 
+		{
+			Vertex vertex{};
+
+			vertex.Position = glm::vec3
+			{
+				attributes.vertices[3 * index.vertex_index + 0],
+				attributes.vertices[3 * index.vertex_index + 1],
+				attributes.vertices[3 * index.vertex_index + 2]
+			};
+
+			vertex.TextureCoordinates = glm::vec2
+			{
+				attributes.texcoords[2 * index.texcoord_index + 0],
+				1.0f - attributes.texcoords[2 * index.texcoord_index + 1]
+			};
+
+			vertex.Color = glm::vec3{ 1.0f, 1.0f, 1.0f };
+
+			if (uniqueVertices.count(vertex) == 0) 
+			{
+				uniqueVertices[vertex] = static_cast<uint32_t>(m_Vertices.size());
+				m_Vertices.push_back(vertex);
+			}
+
+			m_Indices.push_back(uniqueVertices[vertex]);
+		}
+	}
 }

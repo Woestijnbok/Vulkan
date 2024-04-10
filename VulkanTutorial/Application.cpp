@@ -119,30 +119,32 @@ void Application::Run()
 
 void Application::InitializeMesh()
 {
-	const std::vector<Vertex> vertices
-	{
-		Vertex{ glm::vec3{ -0.5f, -0.5f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, glm::vec2{ 1.0f, 0.0f } },
-		Vertex{ glm::vec3{ 0.5f, -0.5f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec2{ 0.0f, 0.0f } },
-		Vertex{ glm::vec3{ 0.5f, 0.5f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f } },
-		Vertex{ glm::vec3{ -0.5f, 0.5f, 0.0f }, glm::vec3{ 1.0f, 1.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f } },
+	//const std::vector<Vertex> vertices
+	//{
+	//	Vertex{ glm::vec3{ -0.5f, -0.5f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, glm::vec2{ 1.0f, 0.0f } },
+	//	Vertex{ glm::vec3{ 0.5f, -0.5f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec2{ 0.0f, 0.0f } },
+	//	Vertex{ glm::vec3{ 0.5f, 0.5f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f } },
+	//	Vertex{ glm::vec3{ -0.5f, 0.5f, 0.0f }, glm::vec3{ 1.0f, 1.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f } },
 
-		Vertex{ glm::vec3{ -0.5f, -0.5f, -0.5f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, glm::vec2{ 0.0f, 0.0f } },
-		Vertex{ glm::vec3{ 0.5f, -0.5f, -0.5f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec2{ 1.0f, 0.0f } },
-		Vertex{ glm::vec3{ 0.5f, 0.5f, -0.5f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f } },
-		Vertex{ glm::vec3{ -0.5f, 0.5f, -0.5f }, glm::vec3{ 1.0f, 1.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f } }
-	};
+	//	Vertex{ glm::vec3{ -0.5f, -0.5f, -0.5f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, glm::vec2{ 0.0f, 0.0f } },
+	//	Vertex{ glm::vec3{ 0.5f, -0.5f, -0.5f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec2{ 1.0f, 0.0f } },
+	//	Vertex{ glm::vec3{ 0.5f, 0.5f, -0.5f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f } },
+	//	Vertex{ glm::vec3{ -0.5f, 0.5f, -0.5f }, glm::vec3{ 1.0f, 1.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f } }
+	//};
 
-	const std::vector<uint16_t> indices
-	{
-		0, 1, 2,	// triangle 1
-		2, 3, 0,	// triangle 2
+	//const std::vector<uint32_t> indices
+	//{
+	//	0, 1, 2,	// triangle 1
+	//	2, 3, 0,	// triangle 2
 
-		4, 5, 6,	// triangle 3
-		6, 7, 4		// triangle 4
-	};
+	//	4, 5, 6,	// triangle 3
+	//	6, 7, 4		// triangle 4
+	//};
 
-	// Graphics queue can handle copy commands, you could create a seperate command pool for copying buffers
-	m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, vertices, indices };
+	//// Graphics queue can handle copy commands, you could create a seperate command pool for copying buffers
+	//m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, vertices, indices };
+
+	m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/viking_room.obj" };
 }
 
 void Application::InitializeWindow()
@@ -190,7 +192,7 @@ void Application::InitializeVulkan()
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
-	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/test_texture.jpg" };
+	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/viking_room.png" };
 	CreateTextureSampler();
 	if (CreateUniformBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create uniform buffers!");
 	if (CreateDescriptorPool() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor pool!");
@@ -890,7 +892,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	const VkBuffer vertexBuffers[]{ m_Mesh->GetVertexBuffer() };
 	const VkDeviceSize offsets[]{ 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(commandBuffer, m_Mesh->GetIndexBuffer(), 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindIndexBuffer(commandBuffer, m_Mesh->GetIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipeLineLayout, 0, 1, &m_DescriptorSets.at(m_CurrentFrame), 0, nullptr);
 
 	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Mesh->GetIndices().size()), 1, 0, 0, 0);
@@ -905,13 +907,14 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
 void Application::UpdateUniformBuffer(uint32_t currentImage)
 {
-	static auto startTime{ std::chrono::high_resolution_clock::now() };
+	/*static auto startTime{ std::chrono::high_resolution_clock::now() };
 	const auto currentTime{ std::chrono::high_resolution_clock::now() };
-	const float time{ std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count() };
+	const float time{ std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count() };*/
 
 	UniformBufferObject matrices
 	{
-		glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+		//glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+		glm::mat4(1.0f),	
 		glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
 		glm::perspective(glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f)
 	};
