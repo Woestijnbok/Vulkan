@@ -25,6 +25,7 @@ const int g_MaxFramePerFlight{ 2 };
 #include "HelperFunctions.h"
 #include "Mesh.h"
 #include "Texture.h"
+#include "Camera.h"
 
 Application::Application(int width, int height) :
 	m_Width{ width },
@@ -66,15 +67,18 @@ Application::Application(int width, int height) :
 	m_TextureSampler{},
 	m_DepthImage{},
 	m_DepthMemory{},
-	m_DepthImageView{}
+	m_DepthImageView{},
+	m_Camera{}
 {
 	InitializeWindow();
 	InitializeVulkan();
 	InitializeMesh();
+	m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f };
 }
 
 Application::~Application()
 {
+	delete m_Camera;
 	vkDestroySampler(m_Device, m_TextureSampler, nullptr);
 	delete m_BaseColorTexture;
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
@@ -108,10 +112,21 @@ Application::~Application()
 
 void Application::Run()
 {
+	glfwSetInputMode(m_Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+	auto lastTime{ std::chrono::high_resolution_clock::now() };
+	auto currentTime{ std::chrono::high_resolution_clock::now() };
+
 	while (!glfwWindowShouldClose(m_Window))
 	{
+		currentTime = std::chrono::high_resolution_clock::now();
+		auto time{ std::chrono::duration_cast<std::chrono::duration<float>>(currentTime - lastTime) };
+
 		glfwPollEvents();
+		m_Camera->ProcessInput(m_Window, time);
 		DrawFrame();
+
+		lastTime = currentTime;
 	}
 
 	vkDeviceWaitIdle(m_Device);
@@ -914,9 +929,11 @@ void Application::UpdateUniformBuffer(uint32_t currentImage)
 	UniformBufferObject matrices
 	{
 		//glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-		glm::mat4(1.0f),	
-		glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-		glm::perspective(glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f)
+		glm::mat4(1.0f),
+		m_Camera->GetViewMatrx(),
+		m_Camera->GetProjectionMatrix()
+		//glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+		//glm::perspective(glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f)
 	};
 	matrices.ProjectionMatrix[1][1] *= -1;
 

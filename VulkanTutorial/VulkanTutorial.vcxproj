@@ -94,6 +94,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="HelperFunctions.cpp" />
     <ClCompile Include="HelperStructs.cpp" />
     <ClCompile Include="main.cpp" />
@@ -102,6 +103,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="HelperFunctions.h" />
     <ClInclude Include="HelperStructs.h" />
     <ClInclude Include="Mesh.h" />

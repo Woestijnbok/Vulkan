@@ -7,6 +7,7 @@
 class Mesh;
 class Texture;
 struct GLFWwindow;
+class Camera;
 
 class Application
 {
@@ -100,6 +101,7 @@ private:
     VkImage m_DepthImage;
     VkDeviceMemory m_DepthMemory;
     VkImageView m_DepthImageView;
+    Camera* m_Camera;
 };
 
 #endif

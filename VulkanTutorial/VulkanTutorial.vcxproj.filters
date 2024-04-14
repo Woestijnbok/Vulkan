@@ -16,6 +16,9 @@
     <Filter Include="Texture">
       <UniqueIdentifier>{a7222234-310b-4ca7-9826-c55753fc562a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Camera">
+      <UniqueIdentifier>{652cfd12-bd84-444e-b051-ca8877123fd2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp">
@@ -34,6 +37,9 @@
     <ClCompile Include="Texture.cpp">
       <Filter>Texture</Filter>
     </ClCompile>
+    <ClCompile Include="Camera.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -50,6 +56,9 @@
     </ClInclude>
     <ClInclude Include="Texture.h">
       <Filter>Texture</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Camera</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
