@@ -123,7 +123,7 @@ void Application::Run()
 		auto time{ std::chrono::duration_cast<std::chrono::duration<float>>(currentTime - lastTime) };
 
 		glfwPollEvents();
-		m_Camera->ProcessInput(m_Window, time);
+		m_Camera->Update(m_Window, time);
 		DrawFrame();
 
 		lastTime = currentTime;

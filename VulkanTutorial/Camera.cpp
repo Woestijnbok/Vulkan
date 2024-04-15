@@ -1,32 +1,57 @@
 #include "Camera.h"
 
-#include <glm/gtc/matrix_transform.hpp>
+#include <glm/vec3.hpp> 
+#include <glm/vec4.hpp>
+#include <glm/mat4x4.hpp> 
+#include <glm/ext/matrix_transform.hpp> 
+#include <glm/ext/matrix_clip_space.hpp> 
+#include <glm/ext/scalar_constants.hpp>
 #include <iostream>
 #include <format>
 
 Camera::Camera(float fieldOfView, float ascpectRatio, float nearPlane, float farPlane) :
     m_MovementSpeed{ 2.5f },
-    m_RotationSensitivity{ 0.1f },
-    m_ProjectionMatrix{ glm::perspective(fieldOfView, ascpectRatio, nearPlane, farPlane) }, 
-    m_Position{ 2.0f, 2.0f, 2.0f },
-    m_Forward{ -1.0f, 0.0f, 0.0f },
-    m_Up{ 0.0f, 0.0f, 1.0f },
+    m_RotationSensitivity{ 0.01f },
+    m_ProjectionMatrix{ glm::perspective(fieldOfView, ascpectRatio, nearPlane, farPlane) },
+    m_ViewMatrix{},
+    m_Position{ 2.83f, 2.09f, 1.41f },
+    m_Forward{},
+    m_Right{},
+    m_Up{},
     m_LastMousePosition{},
-    m_Pitch{},
-    m_Yaw{},
-    m_FirstProcess{ true }
+    m_Yaw{ 0.63f },
+    m_Pitch{ -0.39f },
+    m_RightMouseButtonPressed{ false }
 {
+    CalculateViewMatrix();
+
     std::cout << "--- Camera Controls ---" << std::endl;
     std::cout << "Movement forward / backwards with W & S" << std::endl;
     std::cout << "Movement right / left with D & A" << std::endl;
     std::cout << "Movement up / down with E & Q" << std::endl;
+    std::cout << "Rotate yaw with right click drag x" << std::endl;
+    std::cout << "Rotate pitch with right click drag y" << std::endl << std::endl;
 }
 
-void Camera::ProcessInput(GLFWwindow* window, std::chrono::duration<float> seconds)
+void Camera::Update(GLFWwindow* window, std::chrono::duration<float> seconds)
 {
-    window;
-    seconds;
+    HandleCameraMovement(window, seconds);
+    HandleCameraRotation(window);
+    CalculateViewMatrix();  
+}
 
+glm::mat4 Camera::GetViewMatrx() const
+{
+    return m_ViewMatrix;
+}
+
+glm::mat4 Camera::GetProjectionMatrix() const
+{
+    return m_ProjectionMatrix;
+}
+
+void Camera::HandleCameraMovement(GLFWwindow* window, std::chrono::duration<float> seconds)
+{
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
         m_Position += m_Forward * m_MovementSpeed * seconds.count();
@@ -45,56 +70,56 @@ void Camera::ProcessInput(GLFWwindow* window, std::chrono::duration<float> secon
     }
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
-        m_Position -= glm::normalize(glm::cross(m_Forward, m_Up)) * m_MovementSpeed * seconds.count();
+        m_Position -= m_Right * m_MovementSpeed * seconds.count();
     }
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     {
-        m_Position += glm::normalize(glm::cross(m_Forward, m_Up)) * m_MovementSpeed * seconds.count();  
-    }    
-
-    double xpos, ypos;
-    glfwGetCursorPos(window, &xpos, &ypos);
-    if (m_FirstProcess) 
-    {
-       m_LastMousePosition.x = float(xpos);
-       m_LastMousePosition.y = float(ypos);
-       m_FirstProcess = false;
+        m_Position += m_Right * m_MovementSpeed * seconds.count();
     }
-
-    float xoffset = m_LastMousePosition.x - float(xpos);
-    float yoffset = m_LastMousePosition.y - float(ypos); // reversed since y-coordinates go from bottom to top
-    m_LastMousePosition.x = float(xpos);
-    m_LastMousePosition.y = float(ypos);
-
-    xoffset *= m_RotationSensitivity;
-    yoffset *= m_RotationSensitivity;
-
-    m_Yaw += yoffset;
-    m_Pitch += xoffset;
-
-    UpdateCameraAxis();
 }
 
-glm::mat4 Camera::GetViewMatrx() const
+void Camera::HandleCameraRotation(GLFWwindow* window)
 {
-    //return glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    return glm::lookAt(m_Position, glm::vec3(0.0f, 0.0f, 0.0f), m_Up);
-    //return glm::lookAt(m_Position, m_Position + m_Forward, m_Up);
-}
-
-glm::mat4 Camera::GetProjectionMatrix() const
-{
-    return m_ProjectionMatrix;
-}
-
-void Camera::UpdateCameraAxis()
-{
-    const glm::vec3 newFront
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
     {
-        cos(glm::radians(m_Yaw))* cos(glm::radians(m_Pitch)),
-        sin(glm::radians(m_Pitch)),
-        -sin(glm::radians(m_Yaw))* cos(glm::radians(m_Pitch))
-    };
-    
-    m_Forward = glm::normalize(newFront);
+        double xPosition{}, yPosition{};
+        glfwGetCursorPos(window, &xPosition, &yPosition);
+
+        if (!m_RightMouseButtonPressed)
+        {
+            m_LastMousePosition.x = float(xPosition);
+            m_LastMousePosition.y = float(yPosition);
+
+            m_RightMouseButtonPressed = true;
+        }
+        else
+        {
+            const float xOffset{ m_LastMousePosition.x - float(xPosition) };
+            const float yOffset{ m_LastMousePosition.y - float(yPosition) };
+
+            m_Yaw += xOffset * m_RotationSensitivity;
+            m_Pitch += yOffset * m_RotationSensitivity;
+            m_Yaw = fmodf(m_Yaw, 2 * glm::pi<float>());
+            m_Pitch = std::clamp(m_Pitch, -glm::pi<float>() / 2 + 0.0001f, glm::pi<float>() / 2 - 0.0001f);
+
+            m_LastMousePosition.x = float(xPosition);
+            m_LastMousePosition.y = float(yPosition);
+        }
+    }
+    else
+    {
+        m_RightMouseButtonPressed = false;
+    }
+}
+
+void Camera::CalculateViewMatrix()
+{
+    glm::mat4x4 rotation = glm::rotate(glm::mat4x4(1.f), m_Yaw, g_WorldUp);
+    rotation = glm::rotate(rotation, m_Pitch, g_WorldRight);
+
+    m_Forward = glm::vec3{ rotation * glm::vec4{ g_WorldForward, 0.0f } };
+    m_Right = glm::vec3{ rotation * glm::vec4{ g_WorldRight, 0.0f } };
+    m_Up = glm::vec3{ rotation * glm::vec4{ g_WorldUp, 0.0f } };
+
+    m_ViewMatrix = glm::lookAt(m_Position, m_Position + m_Forward, m_Up);
 }
