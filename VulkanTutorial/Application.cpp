@@ -73,7 +73,12 @@ Application::Application(int width, int height) :
 	InitializeWindow();
 	InitializeVulkan();
 	InitializeMesh();
-	m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f };
+
+	//m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f, 2.5f };
+	//m_Camera->SetStartPosition(glm::vec3{ 2.83f, 2.09f, 1.41f }, 0.63f, -0.39f);
+
+	m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 1000.0f, 15.0f };
+	m_Camera->SetStartPosition(glm::vec3{ 34.68f, 29.46f, 10.52f }, 0.73f, -0.29f);
 }
 
 Application::~Application()
@@ -134,32 +139,10 @@ void Application::Run()
 
 void Application::InitializeMesh()
 {
-	//const std::vector<Vertex> vertices
-	//{
-	//	Vertex{ glm::vec3{ -0.5f, -0.5f, 0.0f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, glm::vec2{ 1.0f, 0.0f } },
-	//	Vertex{ glm::vec3{ 0.5f, -0.5f, 0.0f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec2{ 0.0f, 0.0f } },
-	//	Vertex{ glm::vec3{ 0.5f, 0.5f, 0.0f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f } },
-	//	Vertex{ glm::vec3{ -0.5f, 0.5f, 0.0f }, glm::vec3{ 1.0f, 1.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f } },
+	//m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/viking_room.obj" };
 
-	//	Vertex{ glm::vec3{ -0.5f, -0.5f, -0.5f }, glm::vec3{ 1.0f, 0.0f, 0.0f }, glm::vec2{ 0.0f, 0.0f } },
-	//	Vertex{ glm::vec3{ 0.5f, -0.5f, -0.5f }, glm::vec3{ 0.0f, 1.0f, 0.0f }, glm::vec2{ 1.0f, 0.0f } },
-	//	Vertex{ glm::vec3{ 0.5f, 0.5f, -0.5f }, glm::vec3{ 0.0f, 0.0f, 1.0f }, glm::vec2{ 1.0f, 1.0f } },
-	//	Vertex{ glm::vec3{ -0.5f, 0.5f, -0.5f }, glm::vec3{ 1.0f, 1.0f, 1.0f }, glm::vec2{ 0.0f, 1.0f } }
-	//};
-
-	//const std::vector<uint32_t> indices
-	//{
-	//	0, 1, 2,	// triangle 1
-	//	2, 3, 0,	// triangle 2
-
-	//	4, 5, 6,	// triangle 3
-	//	6, 7, 4		// triangle 4
-	//};
-
-	//// Graphics queue can handle copy commands, you could create a seperate command pool for copying buffers
-	//m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, vertices, indices };
-
-	m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/viking_room.obj" };
+	m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/vehicle.obj" };
+	m_Mesh->SetModelMatrix(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward));
 }
 
 void Application::InitializeWindow()
@@ -207,7 +190,8 @@ void Application::InitializeVulkan()
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
-	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/viking_room.png" };
+	//m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/viking_room.png" };
+	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_diffuse.png" };
 	CreateTextureSampler();
 	if (CreateUniformBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create uniform buffers!");
 	if (CreateDescriptorPool() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor pool!");
@@ -865,7 +849,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkClearValue.html
 	std::array<VkClearValue, 2> clearColors	
 	{
-		VkClearValue{ 0.0f, 0.0f, 0.0f, 1.0f },		
+		VkClearValue{ 0.39f, 0.59f, 0.93f, 1.0f },		
 		VkClearValue{ 1.0f, 1 }		
 	};
 
@@ -922,18 +906,11 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
 void Application::UpdateUniformBuffer(uint32_t currentImage)
 {
-	/*static auto startTime{ std::chrono::high_resolution_clock::now() };
-	const auto currentTime{ std::chrono::high_resolution_clock::now() };
-	const float time{ std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count() };*/
-
 	UniformBufferObject matrices
 	{
-		//glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-		glm::mat4(1.0f),
+		m_Mesh->GetModelMatrix(),
 		m_Camera->GetViewMatrx(),
 		m_Camera->GetProjectionMatrix()
-		//glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-		//glm::perspective(glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f)
 	};
 	matrices.ProjectionMatrix[1][1] *= -1;
 

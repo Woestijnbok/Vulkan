@@ -12,7 +12,7 @@ const glm::vec3 g_WorldUp{ 0.0f, 0.0f, 1.0f };
 class Camera
 {
 public:
-    Camera(float fieldOfView, float ascpectRatio, float nearPlane, float farPlane);
+    Camera(float fieldOfView, float ascpectRatio, float nearPlane, float farPlane, float movementSpeed);
     ~Camera() = default;
 
     Camera(const Camera&) = delete;
@@ -23,6 +23,7 @@ public:
     void Update(GLFWwindow* window, std::chrono::duration<float> seconds);
     glm::mat4 GetViewMatrx() const;
     glm::mat4 GetProjectionMatrix() const;
+    void SetStartPosition(const glm::vec3& position, float yaw, float pitch);
 
 private:
     const float m_MovementSpeed;

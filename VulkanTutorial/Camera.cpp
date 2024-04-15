@@ -9,18 +9,18 @@
 #include <iostream>
 #include <format>
 
-Camera::Camera(float fieldOfView, float ascpectRatio, float nearPlane, float farPlane) :
-    m_MovementSpeed{ 2.5f },
+Camera::Camera(float fieldOfView, float ascpectRatio, float nearPlane, float farPlane, float movementSpeed) :
+    m_MovementSpeed{ movementSpeed },
     m_RotationSensitivity{ 0.01f },
     m_ProjectionMatrix{ glm::perspective(fieldOfView, ascpectRatio, nearPlane, farPlane) },
     m_ViewMatrix{},
-    m_Position{ 2.83f, 2.09f, 1.41f },
+    m_Position{},
     m_Forward{},
     m_Right{},
     m_Up{},
     m_LastMousePosition{},
-    m_Yaw{ 0.63f },
-    m_Pitch{ -0.39f },
+    m_Yaw{},
+    m_Pitch{},
     m_RightMouseButtonPressed{ false }
 {
     CalculateViewMatrix();
@@ -48,6 +48,15 @@ glm::mat4 Camera::GetViewMatrx() const
 glm::mat4 Camera::GetProjectionMatrix() const
 {
     return m_ProjectionMatrix;
+}
+
+void Camera::SetStartPosition(const glm::vec3& position, float yaw, float pitch)    
+{
+    m_Position = position;
+    m_Yaw = yaw;
+    m_Pitch = pitch;
+
+    CalculateViewMatrix();
 }
 
 void Camera::HandleCameraMovement(GLFWwindow* window, std::chrono::duration<float> seconds)
@@ -122,4 +131,6 @@ void Camera::CalculateViewMatrix()
     m_Up = glm::vec3{ rotation * glm::vec4{ g_WorldUp, 0.0f } };
 
     m_ViewMatrix = glm::lookAt(m_Position, m_Position + m_Forward, m_Up);
+
+    //std::cout << std::format("Position: {}, {}, {} Pitch: {} Yaw: {}", m_Position.x, m_Position.y, m_Position.z, m_Pitch, m_Yaw) << std::endl;
 }

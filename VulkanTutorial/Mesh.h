@@ -87,6 +87,8 @@ public:
 	VkBuffer GetVertexBuffer() const;
 	const std::vector<uint32_t> GetIndices() const;
 	VkBuffer GetIndexBuffer() const;
+	glm::mat4 GetModelMatrix() const;
+	void SetModelMatrix(const glm::mat4& matrix);
 
 private:
 	VkPhysicalDevice m_PhysicalDevice;
@@ -94,15 +96,12 @@ private:
 	VkCommandPool m_CopyCommandPool;
 	VkQueue m_CopyQueue;
 	std::vector<Vertex> m_Vertices;
-	VkBuffer m_VertexStagingBuffer;
 	VkBuffer m_VertexBuffer;
-	VkDeviceMemory m_VertexStagingBufferMemory;
 	VkDeviceMemory m_VertexBufferMemory;
 	std::vector<uint32_t> m_Indices;
-	VkBuffer m_IndexStagingBuffer;
 	VkBuffer m_IndexBuffer;
-	VkDeviceMemory m_IndexStagingBufferMemory;
 	VkDeviceMemory m_IndexBufferMemory;
+	glm::mat4 m_ModelMatrix;
 
 	void LoadMesh(const std::filesystem::path& path);
 	VkResult CreateVertexBuffer();
