@@ -12,38 +12,19 @@ struct Vertex final
 	glm::vec3 Position;
 	glm::vec3 Color;
 	glm::vec2 TextureCoordinates;
+	glm::vec3 Normal;
 
 	bool operator==(const Vertex& other) const;
 
 	static VkVertexInputBindingDescription GetBindingDescription();
-	static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions();
+	static std::array<VkVertexInputAttributeDescription, 4> GetAttributeDescriptions();
 };
 
 namespace std 
 {
 	template <> struct hash<Vertex> 
 	{
-		size_t operator()(const Vertex& vertex) const 
-		{
-			// Combine hash values of Position, Color, and TextureCoordinates
-			size_t hashValue = 0;
-
-			// Hash Position
-			hash_combine(hashValue, vertex.Position.x);
-			hash_combine(hashValue, vertex.Position.y);
-			hash_combine(hashValue, vertex.Position.z);
-
-			// Hash Color
-			hash_combine(hashValue, vertex.Color.r);
-			hash_combine(hashValue, vertex.Color.g);
-			hash_combine(hashValue, vertex.Color.b);
-
-			// Hash TextureCoordinates
-			hash_combine(hashValue, vertex.TextureCoordinates.x);
-			hash_combine(hashValue, vertex.TextureCoordinates.y);
-
-			return hashValue;
-		}
+		size_t operator()(const Vertex& vertex) const;
 
 	private:
 		// Helper function to combine hash values

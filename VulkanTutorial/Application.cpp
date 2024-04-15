@@ -57,7 +57,7 @@ Application::Application(int width, int height) :
 	m_InFlight{},
 	m_CurrentFrame{},
 	m_FrameBufferResized{ false },
-	m_Mesh{ nullptr },
+	m_Meshes{},
 	m_UniformBuffers{},
 	m_UniformBufferMemories{},
 	m_UniformBufferMaps{},
@@ -72,7 +72,7 @@ Application::Application(int width, int height) :
 {
 	InitializeWindow();
 	InitializeVulkan();
-	InitializeMesh();
+	InitializeMeshes();
 
 	//m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f, 2.5f };
 	//m_Camera->SetStartPosition(glm::vec3{ 2.83f, 2.09f, 1.41f }, 0.63f, -0.39f);
@@ -86,12 +86,15 @@ Application::~Application()
 	delete m_Camera;
 	vkDestroySampler(m_Device, m_TextureSampler, nullptr);
 	delete m_BaseColorTexture;
+	for (auto mesh : m_Meshes)
+	{
+		delete mesh;
+	}
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
 		vkDestroyBuffer(m_Device, m_UniformBuffers.at(i), nullptr);
 		vkFreeMemory(m_Device, m_UniformBufferMemories.at(i), nullptr);
 	}
-	delete m_Mesh;
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
 		vkDestroySemaphore(m_Device, m_ImageAvailable[i], nullptr);
@@ -137,12 +140,12 @@ void Application::Run()
 	vkDeviceWaitIdle(m_Device);
 }
 
-void Application::InitializeMesh()
+void Application::InitializeMeshes()
 {
-	//m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/viking_room.obj" };
+	//m_Meshes.push_back(new Mesh{m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/viking_room.obj"});
 
-	m_Mesh = new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/vehicle.obj" };
-	m_Mesh->SetModelMatrix(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward));
+	m_Meshes.push_back(new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/vehicle.obj" });
+	m_Meshes.at(0)->SetModelMatrix(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward));
 }
 
 void Application::InitializeWindow()
@@ -499,9 +502,9 @@ VkResult Application::CreateDescriptorSetLayout()
 		VkDescriptorSetLayoutBinding
 		{
 			1,
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,	
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			1,
-			VK_SHADER_STAGE_FRAGMENT_BIT,		
+			VK_SHADER_STAGE_FRAGMENT_BIT,
 			nullptr
 		}
 	};
@@ -701,20 +704,20 @@ VkResult Application::CreateRenderPass()
 			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR						// finalLayout
 		},
 		// depth buffering attachment
-		VkAttachmentDescription	
+		VkAttachmentDescription
 		{
-			0,																
-			FindDepthFormat(m_PhysicalDevice),					
-			VK_SAMPLE_COUNT_1_BIT,							
-			VK_ATTACHMENT_LOAD_OP_CLEAR,					
-			VK_ATTACHMENT_STORE_OP_DONT_CARE,				
-			VK_ATTACHMENT_LOAD_OP_DONT_CARE,					
-			VK_ATTACHMENT_STORE_OP_DONT_CARE,				
-			VK_IMAGE_LAYOUT_UNDEFINED,							
-			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL	
+			0,
+			FindDepthFormat(m_PhysicalDevice),
+			VK_SAMPLE_COUNT_1_BIT,
+			VK_ATTACHMENT_LOAD_OP_CLEAR,
+			VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 		},
 	};
-	
+
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentReference.html
 	const VkAttachmentReference depthAttachmentReference
 	{
@@ -722,10 +725,10 @@ VkResult Application::CreateRenderPass()
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL		// layout	
 	};
 
-	const VkAttachmentReference colorAttachmentReference	
+	const VkAttachmentReference colorAttachmentReference
 	{
-		0,											
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL		
+		0,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription.html
@@ -741,7 +744,7 @@ VkResult Application::CreateRenderPass()
 		&depthAttachmentReference,					// pDepthStencilAttachment
 		0,											// preserveAttachmentCount
 		nullptr										// pPreserveAttachments
-	};		
+	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDependency.html
 	const VkSubpassDependency subpassDependency
@@ -847,10 +850,10 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	}
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkClearValue.html
-	std::array<VkClearValue, 2> clearColors	
+	std::array<VkClearValue, 2> clearColors
 	{
-		VkClearValue{ 0.39f, 0.59f, 0.93f, 1.0f },		
-		VkClearValue{ 1.0f, 1 }		
+		VkClearValue{ 0.39f, 0.59f, 0.93f, 1.0f },
+		VkClearValue{ 1.0f, 1 }
 	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html
@@ -862,7 +865,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 		m_SwapChainFrameBuffers[imageIndex],														// framebuffer
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRect2D.html
 		VkRect2D																					// renderArea
-		{											
+		{
 			VkOffset2D{ 0, 0 },		// offset
 			m_ImageExtend			// extent
 		},
@@ -888,13 +891,13 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	scissor.extent = m_ImageExtend;
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	const VkBuffer vertexBuffers[]{ m_Mesh->GetVertexBuffer() };
+	const VkBuffer vertexBuffers[]{ m_Meshes.at(0)->GetVertexBuffer() };
 	const VkDeviceSize offsets[]{ 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(commandBuffer, m_Mesh->GetIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(commandBuffer, m_Meshes.at(0)->GetIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipeLineLayout, 0, 1, &m_DescriptorSets.at(m_CurrentFrame), 0, nullptr);
 
-	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Mesh->GetIndices().size()), 1, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Meshes.at(0)->GetIndices().size()), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -904,11 +907,11 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	}
 }
 
-void Application::UpdateUniformBuffer(uint32_t currentImage)
+void Application::UpdateUniformBuffer(uint32_t currentImage, Mesh* mesh)
 {
 	UniformBufferObject matrices
 	{
-		m_Mesh->GetModelMatrix(),
+		mesh->GetModelMatrix(),
 		m_Camera->GetViewMatrx(),
 		m_Camera->GetProjectionMatrix()
 	};
@@ -933,7 +936,7 @@ void Application::DrawFrame()
 		throw std::runtime_error("failed to acquire the swap chain image");
 	}
 
-	UpdateUniformBuffer(m_CurrentFrame);
+	UpdateUniformBuffer(m_CurrentFrame, m_Meshes.at(0));
 
 	vkResetFences(m_Device, 1, &m_InFlight[m_CurrentFrame]);
 
@@ -1097,15 +1100,15 @@ VkResult Application::CreateDescriptorPool()
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorPoolSize.html
 	std::array< VkDescriptorPoolSize, 2> descriptorPoolSizes
 	{
-		VkDescriptorPoolSize	
+		VkDescriptorPoolSize
 		{
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// type
 			static_cast<uint32_t>(g_MaxFramePerFlight)		// descriptorCount
 		},
-		VkDescriptorPoolSize	
+		VkDescriptorPoolSize
 		{
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,	
-			static_cast<uint32_t>(g_MaxFramePerFlight)		
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			static_cast<uint32_t>(g_MaxFramePerFlight)
 		}
 	};
 
@@ -1177,18 +1180,18 @@ VkResult Application::CreateDescriptorSets()
 				nullptr											// pTexelBufferView
 			},
 			// Texture + sampler
-			VkWriteDescriptorSet	
+			VkWriteDescriptorSet
 			{
-				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,			
-				nullptr,										
-				m_DescriptorSets.at(i),						
-				1,												
-				0,												
-				1,												
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				nullptr,
+				m_DescriptorSets.at(i),
+				1,
+				0,
+				1,
 				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				&descriptorImageInfo,									
-				nullptr,						
-				nullptr											
+				&descriptorImageInfo,
+				nullptr,
+				nullptr
 			},
 		};
 
@@ -1238,13 +1241,13 @@ void Application::CreateDepthResources()
 
 	CreateImage
 	(
-		m_PhysicalDevice, 
+		m_PhysicalDevice,
 		m_Device,
-		m_ImageExtend, 
-		depthFormat, 
-		VK_IMAGE_TILING_OPTIMAL, 
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, 
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+		m_ImageExtend,
+		depthFormat,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		m_DepthImage,
 		m_DepthMemory
 	);

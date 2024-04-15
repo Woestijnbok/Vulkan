@@ -24,10 +24,10 @@ VkVertexInputBindingDescription Vertex::GetBindingDescription()
 	return bindingDescription;
 }
 
-std::array<VkVertexInputAttributeDescription, 3> Vertex::GetAttributeDescriptions()
+std::array<VkVertexInputAttributeDescription, 4> Vertex::GetAttributeDescriptions()
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkVertexInputAttributeDescription.html
-	const std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions
+	const std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions
 	{
 		// Position
 		VkVertexInputAttributeDescription
@@ -52,10 +52,45 @@ std::array<VkVertexInputAttributeDescription, 3> Vertex::GetAttributeDescription
 			0,	
 			VK_FORMAT_R32G32_SFLOAT,	
 			offsetof(Vertex, TextureCoordinates)	
-		}
+		},
+		// Normal
+		VkVertexInputAttributeDescription
+		{
+			3,								
+			0,								
+			VK_FORMAT_R32G32B32_SFLOAT,		
+			offsetof(Vertex, Normal)		
+		},
 	};
 
 	return attributeDescriptions;
+}
+
+size_t std::hash<Vertex>::operator()(const Vertex& vertex) const
+{
+	// Combine hash values of Position, Color, and TextureCoordinates
+	size_t hashValue = 0;
+
+	// Hash Position
+	hash_combine(hashValue, vertex.Position.x);	
+	hash_combine(hashValue, vertex.Position.y);
+	hash_combine(hashValue, vertex.Position.z);
+
+	// Hash Color
+	hash_combine(hashValue, vertex.Color.r);
+	hash_combine(hashValue, vertex.Color.g);
+	hash_combine(hashValue, vertex.Color.b);
+
+	// Hash TextureCoordinates
+	hash_combine(hashValue, vertex.TextureCoordinates.x);
+	hash_combine(hashValue, vertex.TextureCoordinates.y);
+
+	// Hash Normal
+	hash_combine(hashValue, vertex.Normal.x);
+	hash_combine(hashValue, vertex.Normal.y);
+	hash_combine(hashValue, vertex.Normal.z);
+
+	return hashValue;
 }
 
 Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::filesystem::path& path) :
@@ -214,6 +249,9 @@ VkResult Mesh::CreateIndexBuffer()
 
 	CopyBuffer(m_Device, indexStagingBuffer, m_IndexBuffer, bufferSize, m_CopyCommandPool, m_CopyQueue);
 
+	vkDestroyBuffer(m_Device, indexStagingBuffer, nullptr);
+	vkFreeMemory(m_Device, indexStagingBufferMemory, nullptr);
+
 	return result;
 }
 
@@ -253,6 +291,13 @@ void Mesh::LoadMesh(const std::filesystem::path& path)
 			};
 
 			vertex.Color = glm::vec3{ 1.0f, 1.0f, 1.0f };
+
+			vertex.Normal = glm::vec3
+			{
+				attributes.normals[3 * index.normal_index + 0],
+				attributes.normals[3 * index.normal_index + 1],
+				attributes.normals[3 * index.normal_index + 2]
+			};
 
 			if (uniqueVertices.count(vertex) == 0) 
 			{

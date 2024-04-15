@@ -26,7 +26,7 @@ public:
 
 private:
 
-    void InitializeMesh();
+    void InitializeMeshes();
     void InitializeWindow();
     void InitializeVulkan();
     bool ExtensionsPresent();
@@ -47,7 +47,7 @@ private:
     VkResult CreateCommandPool();
     VkResult CreateCommandBuffers();
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-    void UpdateUniformBuffer(uint32_t currentImage);
+    void UpdateUniformBuffer(uint32_t currentImage, Mesh* mesh);
     void DrawFrame();
     VkResult CreateSyncObjects();
     void RecreateSwapChain();
@@ -90,7 +90,7 @@ private:
     std::vector<VkFence> m_InFlight;
     uint32_t m_CurrentFrame;
     bool m_FrameBufferResized;
-    Mesh* m_Mesh;
+    std::vector<Mesh*> m_Meshes;
     std::vector<VkBuffer> m_UniformBuffers;
     std::vector<VkDeviceMemory> m_UniformBufferMemories;
     std::vector<void*> m_UniformBufferMaps;
