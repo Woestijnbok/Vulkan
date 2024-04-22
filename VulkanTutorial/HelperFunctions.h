@@ -35,34 +35,76 @@ VKAPI_ATTR VkBool32 VKAPI_CALL MessageCallback
 );
 
 // Function that fills our VkDebugUtilsMessengerCreateInfoEXT struct
-void FillDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+void FillDebugMessengerCreateInfo
+(
+    VkDebugUtilsMessengerCreateInfoEXT& createInfo
+);
 
 // Checks if the gpu is suitable for the operations we want to do
-bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std::vector<const char*>& physicalExtensionNames);
+bool IsPhysicalDeviceSuitable
+(
+    VkPhysicalDevice device, 
+    VkSurfaceKHR surface, 
+    std::vector<const char*>& physicalExtensionNames
+);
 
 // Find all the queue families we need
-QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
+QueueFamilyIndices FindQueueFamilies
+(
+    VkPhysicalDevice device, 
+    VkSurfaceKHR surface
+);
 
 // Check if all required device extensions are enabled
-bool DeviceExtenstionsPresent(VkPhysicalDevice device, std::vector<const char*>& physicalExtensionNames);
+bool DeviceExtenstionsPresent
+(
+    VkPhysicalDevice device, 
+    std::vector<const char*>& physicalExtensionNames
+);
 
 // Function that fills our VkDebugUtilsMessengerCreateInfoEXT struct
-SwapChainSupportDetails QuerySwapChainSupportDetails(VkPhysicalDevice device, VkSurfaceKHR surface);
+SwapChainSupportDetails QuerySwapChainSupportDetails
+(
+    VkPhysicalDevice device, 
+    VkSurfaceKHR surface
+);
 
 // Will find the best possible format out of the given ones (swap chain)
-VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+VkSurfaceFormatKHR ChooseSurfaceFormat
+(
+    const std::vector<VkSurfaceFormatKHR>& availableFormats
+);
 
 // Will find the best possible format out of the given ones (swap chain)
-VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+VkPresentModeKHR ChoosePresentMode
+(
+    const std::vector<VkPresentModeKHR>& availablePresentModes
+);
 
 // Will find the best possible swap extent this is about the resulutions of the images / surfaces in the swap chain
-VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window);
+VkExtent2D ChooseExtent
+(
+    const VkSurfaceCapabilitiesKHR& capabilities, 
+    GLFWwindow* window
+);
 
-std::vector<char> LoadSPIRV(const std::filesystem::path& path);
+std::vector<char> LoadSPIRV
+(
+    const std::filesystem::path& path
+);
 
-VkShaderModule CreateShaderModule(const std::vector<char>& buffer, VkDevice device);
+VkShaderModule CreateShaderModule
+(
+    const std::vector<char>& buffer, 
+    VkDevice device
+);
 
-uint32_t FindMemoryTypeIndex(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
+uint32_t FindMemoryTypeIndex
+(
+    VkPhysicalDevice physicalDevice, 
+    uint32_t typeFilter, 
+    VkMemoryPropertyFlags properties
+);
 
 void CreateBuffer
 (
@@ -96,23 +138,85 @@ void CreateImage
     VkImageUsageFlags usage,
     VkMemoryPropertyFlags properties,
     VkImage& image,
-    VkDeviceMemory& memory
+    VkDeviceMemory& memory, 
+    uint32_t mipLevels
 );
 
-VkCommandBuffer BeginSingleTimeCommands(VkDevice device, VkCommandPool commandPool);
+VkCommandBuffer BeginSingleTimeCommands
+(
+    VkDevice device, 
+    VkCommandPool commandPool
+);
 
-void EndSingleTimeCommands(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkCommandBuffer commandBuffer);
+void EndSingleTimeCommands
+(
+    VkDevice device, 
+    VkCommandPool commandpool, 
+    VkQueue queue, 
+    VkCommandBuffer commandBuffer
+);
 
-void TransitionImageLayout(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+void TransitionImageLayout
+(
+    VkDevice device, 
+    VkCommandPool commandpool, 
+    VkQueue queue, 
+    VkImage image, 
+    VkFormat format, 
+    VkImageLayout oldLayout, 
+    VkImageLayout newLayout, 
+    uint32_t mipLevels
+);
 
-void CopyBufferToImage(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+void CopyBufferToImage
+(
+    VkDevice device, 
+    VkCommandPool commandpool, 
+    VkQueue queue, 
+    VkBuffer buffer, 
+    VkImage image, 
+    uint32_t width, 
+    uint32_t height
+);
 
-VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+VkImageView CreateImageView
+(
+    VkDevice device,
+    VkImage image, 
+    VkFormat format, 
+    VkImageAspectFlags aspectFlags, 
+    uint32_t mipLevels
+);
 
-VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+VkFormat FindSupportedFormat
+(
+    VkPhysicalDevice physicalDevice, 
+    const std::vector<VkFormat>& candidates, 
+    VkImageTiling tiling, 
+    VkFormatFeatureFlags features
+);
 
-VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice);
+VkFormat FindDepthFormat
+(
+    VkPhysicalDevice physicalDevice
+);
 
-bool HasStencilComponent(VkFormat format);
+bool HasStencilComponent
+(
+    VkFormat format
+);
+
+void GenerateMipmaps
+(
+    VkPhysicalDevice physicalDevice,
+    VkDevice device,
+    VkCommandPool commandPool,
+    VkQueue queue,
+    VkImage image,
+    VkFormat imageFormat,
+    int32_t texWidth,
+    int32_t texHeight,
+    uint32_t mipLevels
+);
 
 #endif

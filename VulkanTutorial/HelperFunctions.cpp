@@ -61,7 +61,10 @@ VKAPI_ATTR VkBool32 VKAPI_CALL MessageCallback
     return VK_FALSE;
 }
 
-void FillDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+void FillDebugMessengerCreateInfo
+(
+    VkDebugUtilsMessengerCreateInfoEXT& createInfo
+)
 {
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDebugUtilsMessengerCreateInfoEXT.html
     createInfo = VkDebugUtilsMessengerCreateInfoEXT{};
@@ -72,7 +75,12 @@ void FillDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo
     createInfo.pfnUserCallback = &MessageCallback;
 }
 
-bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std::vector<const char*>& physicalExtensionNames)
+bool IsPhysicalDeviceSuitable
+(
+    VkPhysicalDevice device, 
+    VkSurfaceKHR surface, 
+    std::vector<const char*>& physicalExtensionNames
+)
 {
     QueueFamilyIndices indices{ FindQueueFamilies(device, surface) };
 
@@ -94,7 +102,11 @@ bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std
     return queueFamiliesPresent and deviceExtensionPresent and swapChainDetailsPresent and physicalDeviceFeatures.samplerAnisotropy;
 }
 
-QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
+QueueFamilyIndices FindQueueFamilies
+(
+    VkPhysicalDevice device, 
+    VkSurfaceKHR surface
+)
 {
     QueueFamilyIndices indices{};
     
@@ -129,7 +141,11 @@ QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surfa
     return indices;
 }
 
-bool DeviceExtenstionsPresent(VkPhysicalDevice device, std::vector<const char*>& physicalExtensionNames)
+bool DeviceExtenstionsPresent
+(
+    VkPhysicalDevice device, 
+    std::vector<const char*>& physicalExtensionNames
+)
 {
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
@@ -166,7 +182,11 @@ bool DeviceExtenstionsPresent(VkPhysicalDevice device, std::vector<const char*>&
     return extensionsPresent;
 }
 
-SwapChainSupportDetails QuerySwapChainSupportDetails(VkPhysicalDevice device, VkSurfaceKHR surface)
+SwapChainSupportDetails QuerySwapChainSupportDetails
+(
+    VkPhysicalDevice device, 
+    VkSurfaceKHR surface
+)
 {
     SwapChainSupportDetails details{};
 
@@ -194,7 +214,10 @@ SwapChainSupportDetails QuerySwapChainSupportDetails(VkPhysicalDevice device, Vk
     return details;
 }
 
-VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
+VkSurfaceFormatKHR ChooseSurfaceFormat
+(
+    const std::vector<VkSurfaceFormatKHR>& availableFormats
+)
 {
     for (const auto& availableFormat : availableFormats)
     {
@@ -208,7 +231,10 @@ VkSurfaceFormatKHR ChooseSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& av
     return availableFormats.at(0);
 }
 
-VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
+VkPresentModeKHR ChoosePresentMode
+(
+    const std::vector<VkPresentModeKHR>& availablePresentModes
+)
 {
     for (const auto& availablePresentMode : availablePresentModes) 
     {
@@ -223,7 +249,11 @@ VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& availabl
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window)
+VkExtent2D ChooseExtent
+(
+    const VkSurfaceCapabilitiesKHR& capabilities, 
+    GLFWwindow* window
+)
 {
     // Does the window manager not allow to have different resulotion in the window then the images / surfaces in the swapchain
     if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) 
@@ -248,7 +278,10 @@ VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow
     }
 }
 
-std::vector<char> LoadSPIRV(const std::filesystem::path& path)
+std::vector<char> LoadSPIRV
+(
+    const std::filesystem::path& path
+)
 {
     if (!std::filesystem::exists(path)) throw std::runtime_error("Specified path does not exist!");
 
@@ -267,7 +300,10 @@ std::vector<char> LoadSPIRV(const std::filesystem::path& path)
     return buffer;
 }
 
-VkShaderModule CreateShaderModule(const std::vector<char>& buffer, VkDevice device)
+VkShaderModule CreateShaderModule
+(
+    const std::vector<char>& buffer, VkDevice device
+)
 {
     VkShaderModuleCreateInfo shaderModuleCreateInfo{};
     shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -280,7 +316,12 @@ VkShaderModule CreateShaderModule(const std::vector<char>& buffer, VkDevice devi
     return shaderModule;
 }
 
-uint32_t FindMemoryTypeIndex(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties)
+uint32_t FindMemoryTypeIndex
+(
+    VkPhysicalDevice physicalDevice, 
+    uint32_t typeFilter, 
+    VkMemoryPropertyFlags properties
+)
 {
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPhysicalDeviceMemoryProperties.html
     VkPhysicalDeviceMemoryProperties memoryProperties{};
@@ -298,7 +339,16 @@ uint32_t FindMemoryTypeIndex(VkPhysicalDevice physicalDevice, uint32_t typeFilte
     throw std::runtime_error("Failed to find suitable memory type!");
 }
 
-void CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) 
+void CreateBuffer
+(
+    VkPhysicalDevice physicalDevice, 
+    VkDevice device, 
+    VkDeviceSize size, 
+    VkBufferUsageFlags usage, 
+    VkMemoryPropertyFlags properties, 
+    VkBuffer& buffer, 
+    VkDeviceMemory& bufferMemory
+) 
 {
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkBufferCreateInfo.html
     const VkBufferCreateInfo bufferCreateInfo
@@ -344,7 +394,15 @@ void CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize
     vkBindBufferMemory(device, buffer, bufferMemory, 0);
 }
 
-void CopyBuffer(VkDevice device, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool, VkQueue queue) 
+void CopyBuffer
+(
+    VkDevice device, 
+    VkBuffer srcBuffer, 
+    VkBuffer dstBuffer, 
+    VkDeviceSize size,
+    VkCommandPool commandPool, 
+    VkQueue queue
+) 
 {
     VkCommandBuffer commandBuffer{ BeginSingleTimeCommands(device, commandPool) };
 
@@ -370,7 +428,8 @@ void CreateImage
     VkImageUsageFlags usage,
     VkMemoryPropertyFlags properties,
     VkImage& image,
-    VkDeviceMemory& memory
+    VkDeviceMemory& memory, 
+    uint32_t mipLevels
 )
 {
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html
@@ -382,7 +441,7 @@ void CreateImage
         VK_IMAGE_TYPE_2D,                                                           // imageType
         format,                                                                     // format
         VkExtent3D{ size.width, size.height, 1 },                                   // extent
-        1,                                                                          // mipLevels
+        mipLevels,                                                                  // mipLevels
         1,                                                                          // arrayLayers
         VK_SAMPLE_COUNT_1_BIT,                                                      // samples
         tiling,                                                                     // tiling
@@ -423,7 +482,11 @@ void CreateImage
     vkBindImageMemory(device, image, memory, 0);
 }
 
-VkCommandBuffer BeginSingleTimeCommands(VkDevice device, VkCommandPool commandPool) 
+VkCommandBuffer BeginSingleTimeCommands
+(
+    VkDevice device, 
+    VkCommandPool commandPool
+) 
 {
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandBufferAllocateInfo.html
     const VkCommandBufferAllocateInfo commandBufferAllocateInfo
@@ -452,7 +515,13 @@ VkCommandBuffer BeginSingleTimeCommands(VkDevice device, VkCommandPool commandPo
     return commandBuffer;
 }
 
-void EndSingleTimeCommands(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkCommandBuffer commandBuffer) 
+void EndSingleTimeCommands
+(
+    VkDevice device,
+    VkCommandPool commandpool, 
+    VkQueue queue, 
+    VkCommandBuffer commandBuffer
+) 
 {
     vkEndCommandBuffer(commandBuffer);
 
@@ -476,7 +545,17 @@ void EndSingleTimeCommands(VkDevice device, VkCommandPool commandpool, VkQueue q
     vkFreeCommandBuffers(device, commandpool, 1, &commandBuffer);
 }
 
-void TransitionImageLayout(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) 
+void TransitionImageLayout
+(
+    VkDevice device, 
+    VkCommandPool commandpool, 
+    VkQueue queue, 
+    VkImage image, 
+    VkFormat format, 
+    VkImageLayout oldLayout, 
+    VkImageLayout newLayout, 
+    uint32_t mipLevels
+)
 {
     VkCommandBuffer commandBuffer{ BeginSingleTimeCommands(device, commandpool) };
 
@@ -497,7 +576,7 @@ void TransitionImageLayout(VkDevice device, VkCommandPool commandpool, VkQueue q
         {
             VK_IMAGE_ASPECT_COLOR_BIT,          // aspectMask
             0,                                  // baseMipLevel
-            1,                                  // levelCount
+            mipLevels,                          // levelCount
             0,                                  // baseArrayLayer
             1                                   // layerCount
         }   
@@ -564,7 +643,16 @@ void TransitionImageLayout(VkDevice device, VkCommandPool commandpool, VkQueue q
     format;
 }
 
-void CopyBufferToImage(VkDevice device, VkCommandPool commandpool, VkQueue queue, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) 
+void CopyBufferToImage
+(
+    VkDevice device, 
+    VkCommandPool commandpool,
+    VkQueue queue, 
+    VkBuffer buffer, 
+    VkImage image, 
+    uint32_t width, 
+    uint32_t height
+) 
 {
     VkCommandBuffer commandBuffer{ BeginSingleTimeCommands(device, commandpool ) };
 
@@ -611,7 +699,14 @@ void CopyBufferToImage(VkDevice device, VkCommandPool commandpool, VkQueue queue
     EndSingleTimeCommands(device, commandpool, queue, commandBuffer);
 }
 
-VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags)
+VkImageView CreateImageView
+(
+    VkDevice device,
+    VkImage image,
+    VkFormat format,
+    VkImageAspectFlags aspectFlags, 
+    uint32_t mipLevels
+)
 {
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html
     const VkImageViewCreateInfo imageViewcreateInfo
@@ -635,7 +730,7 @@ VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkI
         {
             aspectFlags,			            // aspectMask
             0,									// baseMipLevel
-            1,									// levelCount
+            mipLevels,							// levelCount
             0,									// baseArrayLayer
             1									// layerCount
         }
@@ -650,7 +745,13 @@ VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkI
     return imageView;
 }
 
-VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) 
+VkFormat FindSupportedFormat
+(
+    VkPhysicalDevice physicalDevice, 
+    const std::vector<VkFormat>& candidates,
+    VkImageTiling tiling, 
+    VkFormatFeatureFlags features
+) 
 {
     for (VkFormat format : candidates)
     {
@@ -670,7 +771,10 @@ VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<
     throw std::runtime_error("Failed to find supported format!");
 }
 
-VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice)
+VkFormat FindDepthFormat
+(
+    VkPhysicalDevice physicalDevice
+)
 {
     return FindSupportedFormat
     (
@@ -681,7 +785,165 @@ VkFormat FindDepthFormat(VkPhysicalDevice physicalDevice)
     );
 }
 
-bool HasStencilComponent(VkFormat format) 
+bool HasStencilComponent
+(
+    VkFormat format
+) 
 {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+void GenerateMipmaps
+(
+    VkPhysicalDevice physicalDevice,
+    VkDevice device,
+    VkCommandPool commandPool,
+    VkQueue queue,
+    VkImage image,
+    VkFormat imageFormat,
+    int32_t texWidth,
+    int32_t texHeight,
+    uint32_t mipLevels
+)
+{
+    VkFormatProperties formatProperties{};
+    vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
+    if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) 
+    {
+        throw std::runtime_error("texture image format does not support linear blitting!"); 
+    }
+
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands(device, commandPool);
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageMemoryBarrier.html
+    VkImageMemoryBarrier imageMemoryBarrier
+    {
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,                         // sType
+        nullptr,                                                        // pNext
+        0,                                                              // srcAccessMask
+        0,                                                              // dstAccessMask
+        VK_IMAGE_LAYOUT_UNDEFINED,                                      // oldLayout
+        VK_IMAGE_LAYOUT_UNDEFINED,                                      // newLayout
+        VK_QUEUE_FAMILY_IGNORED,                                        // srcQueueFamilyIndex
+        VK_QUEUE_FAMILY_IGNORED,                                        // dstQueueFamilyIndex
+        image,                                                          // image
+        VkImageSubresourceRange                                         // subresourceRange
+        {
+            VK_IMAGE_ASPECT_COLOR_BIT,      // aspectMask
+            0,                              // baseMipLevel
+            1,                              // levelCount
+            0,                              // baseArrayLayer
+            1                               // layerCount
+        }
+    };
+
+    int32_t mipWidth{ texWidth };
+    int32_t mipHeight{ texHeight };
+
+    for (uint32_t i{ 1 }; i < mipLevels; ++i)
+    {
+        imageMemoryBarrier.subresourceRange.baseMipLevel = i - 1;
+        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;    
+        imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;    
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;        
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT; 
+
+        vkCmdPipelineBarrier
+        (
+            commandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+            0, nullptr,
+            0, nullptr,
+            1, &imageMemoryBarrier
+        );
+
+        const VkImageBlit imageBlit
+        {
+            VkImageSubresourceLayers                            // srcSubresource
+            {
+                VK_IMAGE_ASPECT_COLOR_BIT,      // aspectMask
+                i - 1,                          // mipLevel
+                0,                              // baseArrayLayer
+                1                               // layerCount
+            },                                                 
+            {                                                   // srcOffsets[2]
+                VkOffset3D                                       
+                {
+                    0,      // x
+                    0,      // y
+                    0       // z
+                },
+                VkOffset3D
+                {
+                    mipWidth,
+                    mipHeight,
+                    1
+                }
+            },
+            VkImageSubresourceLayers                            // dstSubresource
+            {
+                VK_IMAGE_ASPECT_COLOR_BIT,
+                i,
+                0,
+                1
+            },                                                    
+            {                                                   // dstOffsets[2]
+                VkOffset3D
+                {
+                    0,
+                    0,
+                    0
+                },
+                VkOffset3D
+                {
+                    (mipWidth > 1) ? mipWidth / 2 : 1, 
+                    (mipHeight > 1) ? mipHeight / 2 : 1, 
+                    1
+                }
+            }
+        };
+
+        vkCmdBlitImage  
+        (
+            commandBuffer,
+            image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,    
+            image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,    
+            1, &imageBlit,      
+            VK_FILTER_LINEAR    
+        );
+
+        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;    
+        imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;    
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT; 
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;   
+
+        vkCmdPipelineBarrier
+        (
+            commandBuffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+            0, nullptr,
+            0, nullptr,
+            1, &imageMemoryBarrier
+        );
+
+        if (mipWidth > 1) mipWidth /= 2;    
+        if (mipHeight > 1) mipHeight /= 2;  
+    }
+
+    imageMemoryBarrier.subresourceRange.baseMipLevel = mipLevels - 1;   
+    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;    
+    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;    
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;    
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;   
+
+    vkCmdPipelineBarrier
+    (
+        commandBuffer,
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,   
+        0, nullptr,
+        0, nullptr,
+        1, &imageMemoryBarrier  
+    );
+
+    EndSingleTimeCommands(device, commandPool, queue, commandBuffer);
 }

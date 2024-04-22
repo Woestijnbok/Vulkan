@@ -29,12 +29,18 @@ VkImageView Texture::GetImageView() const
 	return m_ImageView;
 }
 
+uint32_t Texture::GetMipLevels() const
+{
+	return m_MipLevels;
+}
+
 void Texture::LoadTexture(const std::filesystem::path& path)
 {
 	if (!std::filesystem::exists(path)) throw std::runtime_error("Invalid texture file path given!");
 
 	int textureWidth{}, textureHeight{}, textureChannels{};
 	stbi_uc* pixels{ stbi_load(path.string().c_str(), &textureWidth, &textureHeight, &textureChannels, STBI_rgb_alpha) };
+	m_MipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(textureWidth, textureHeight)))) + 1;
 	const VkDeviceSize imageSize{ VkDeviceSize(textureWidth) * VkDeviceSize(textureHeight) * 4 };
 
 	if (!pixels) throw std::runtime_error("failed to load texture image!");
@@ -66,18 +72,20 @@ void Texture::LoadTexture(const std::filesystem::path& path)
 		VkExtent2D{ uint32_t(textureWidth), uint32_t(textureHeight) },
 		VK_FORMAT_R8G8B8A8_SRGB,
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		m_Image,
-		m_ImageMemory
+		m_ImageMemory,
+		m_MipLevels
 	);
 
-	TransitionImageLayout(m_Device, m_CopyCommandPool, m_CopyQueu, m_Image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	TransitionImageLayout(m_Device, m_CopyCommandPool, m_CopyQueu, m_Image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, m_MipLevels);
 	CopyBufferToImage(m_Device, m_CopyCommandPool, m_CopyQueu, stagingPixelBuffer, m_Image, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
-	TransitionImageLayout(m_Device, m_CopyCommandPool, m_CopyQueu, m_Image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	
+	GenerateMipmaps(m_PhysicalDevice, m_Device, m_CopyCommandPool, m_CopyQueu, m_Image, VK_FORMAT_R8G8B8A8_SRGB, textureWidth, textureHeight, m_MipLevels);
 
 	vkDestroyBuffer(m_Device, stagingPixelBuffer, nullptr);
 	vkFreeMemory(m_Device, stagingPixelBufferMemory, nullptr);
 
-	m_ImageView = CreateImageView(m_Device, m_Image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);	
+	m_ImageView = CreateImageView(m_Device, m_Image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, m_MipLevels);	
 }

@@ -16,6 +16,7 @@ public:
 	Texture& operator=(Texture&&) = delete;
 
 	VkImageView GetImageView() const;
+	uint32_t GetMipLevels() const;
 
 private:
 	VkPhysicalDevice m_PhysicalDevice;
@@ -25,6 +26,7 @@ private:
 	VkImage m_Image;						// VkImage is like a buffer but allows some easy of use for textures like 2D indexing
 	VkDeviceMemory m_ImageMemory;
 	VkImageView m_ImageView;
+	uint32_t m_MipLevels;
 
 	void LoadTexture(const std::filesystem::path& path);
 };

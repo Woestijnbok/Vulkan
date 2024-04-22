@@ -3,9 +3,9 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #ifdef NDEBUG
-const bool g_EnableValidationlayers{ false };
+	const bool g_EnableValidationlayers{ false };
 #else
-const bool g_EnableValidationlayers{ true };
+	const bool g_EnableValidationlayers{ true };
 #endif
 
 const int g_MaxFramePerFlight{ 2 };
@@ -74,11 +74,11 @@ Application::Application(int width, int height) :
 	InitializeVulkan();
 	InitializeMeshes();
 
-	//m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f, 2.5f };
-	//m_Camera->SetStartPosition(glm::vec3{ 2.83f, 2.09f, 1.41f }, 0.63f, -0.39f);
+	m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f, 2.5f };
+	m_Camera->SetStartPosition(glm::vec3{ 2.83f, 2.09f, 1.41f }, 0.63f, -0.39f);
 
-	m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 1000.0f, 15.0f };
-	m_Camera->SetStartPosition(glm::vec3{ 34.68f, 29.46f, 10.52f }, 0.73f, -0.29f);
+	//m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 1000.0f, 15.0f };
+	//m_Camera->SetStartPosition(glm::vec3{ 34.68f, 29.46f, 10.52f }, 0.73f, -0.29f);
 }
 
 Application::~Application()
@@ -142,10 +142,10 @@ void Application::Run()
 
 void Application::InitializeMeshes()
 {
-	//m_Meshes.push_back(new Mesh{m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/viking_room.obj"});
+	m_Meshes.push_back(new Mesh{m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/viking_room.obj"});
 
-	m_Meshes.push_back(new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/vehicle.obj" });
-	m_Meshes.at(0)->SetModelMatrix(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward));
+	//m_Meshes.push_back(new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/vehicle.obj" });
+	//m_Meshes.at(0)->SetModelMatrix(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward));
 }
 
 void Application::InitializeWindow()
@@ -193,8 +193,8 @@ void Application::InitializeVulkan()
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
-	//m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/viking_room.png" };
-	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_diffuse.png" };
+	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/viking_room.png" };
+	//m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_diffuse.png" };
 	CreateTextureSampler();
 	if (CreateUniformBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create uniform buffers!");
 	if (CreateDescriptorPool() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor pool!");
@@ -478,7 +478,7 @@ VkResult Application::CreateSwapChainImageViews()
 	m_SwapChainImageViews.resize(m_SwapChainImages.size());
 	for (size_t i{}; i < m_SwapChainImages.size(); ++i)
 	{
-		m_SwapChainImageViews.at(i) = CreateImageView(m_Device, m_SwapChainImages.at(i), m_ImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+		m_SwapChainImageViews.at(i) = CreateImageView(m_Device, m_SwapChainImages.at(i), m_ImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 	}
 
 	return VK_SUCCESS;
@@ -1224,7 +1224,7 @@ void Application::CreateTextureSampler()
 		VK_FALSE,														// compareEnable
 		VK_COMPARE_OP_ALWAYS,											// compareOp	
 		0.0f,															// minLod
-		0.0f,															// maxLod
+		VK_LOD_CLAMP_NONE,												// maxLod
 		VK_BORDER_COLOR_INT_OPAQUE_BLACK,								// borderColor
 		VK_FALSE														// unnormalizedCoordinates
 	};
@@ -1249,10 +1249,11 @@ void Application::CreateDepthResources()
 		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		m_DepthImage,
-		m_DepthMemory
+		m_DepthMemory,
+		1
 	);
 
-	m_DepthImageView = CreateImageView(m_Device, m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+	m_DepthImageView = CreateImageView(m_Device, m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 
-	TransitionImageLayout(m_Device, m_CommandPool, m_GrahicsQueue, m_DepthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	TransitionImageLayout(m_Device, m_CommandPool, m_GrahicsQueue, m_DepthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1);
 }
