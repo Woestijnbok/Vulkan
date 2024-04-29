@@ -139,7 +139,8 @@ void CreateImage
     VkMemoryPropertyFlags properties,
     VkImage& image,
     VkDeviceMemory& memory, 
-    uint32_t mipLevels
+    uint32_t mipLevels,
+    VkSampleCountFlagBits sampleCount
 );
 
 VkCommandBuffer BeginSingleTimeCommands
@@ -217,6 +218,11 @@ void GenerateMipmaps
     int32_t texWidth,
     int32_t texHeight,
     uint32_t mipLevels
+);
+
+VkSampleCountFlagBits GetMaxUsableSampleCount
+(
+    VkPhysicalDevice device
 );
 
 #endif

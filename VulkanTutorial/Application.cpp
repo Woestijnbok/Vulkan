@@ -68,7 +68,11 @@ Application::Application(int width, int height) :
 	m_DepthImage{},
 	m_DepthMemory{},
 	m_DepthImageView{},
-	m_Camera{}
+	m_ColorImage{},
+	m_ColorMemory{},
+	m_ColorImageView{},
+	m_Camera{},
+	m_MSAASamples{ VK_SAMPLE_COUNT_1_BIT }
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -189,6 +193,7 @@ void Application::InitializeVulkan()
 	if (CreateDescriptorSetLayout() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor set layout!");
 	if (CreateGraphicsPipeline() != VK_SUCCESS) throw std::runtime_error("failed to create grahpics pipeline!");
 	if (CreateCommandPool() != VK_SUCCESS) throw std::runtime_error("failed to create command pool!");
+	CreateColorResources();
 	CreateDepthResources();
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
@@ -351,6 +356,7 @@ bool Application::PickPhysicalDevice()
 		if (IsPhysicalDeviceSuitable(device, m_Surface, m_PhysicalDeviceExtensionNames))
 		{
 			m_PhysicalDevice = device;
+			m_MSAASamples = GetMaxUsableSampleCount(m_PhysicalDevice);
 			break;
 		}
 	}
@@ -381,6 +387,7 @@ VkResult Application::CreateLogicalDevice()
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPhysicalDeviceFeatures.html
 	VkPhysicalDeviceFeatures physicalDeviceFeatures{};
 	physicalDeviceFeatures.samplerAnisotropy = VK_TRUE;
+	physicalDeviceFeatures.sampleRateShading = VK_TRUE;
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDeviceCreateInfo.html
 	VkDeviceCreateInfo deviceCreateInfo{};
@@ -624,8 +631,9 @@ VkResult Application::CreateGraphicsPipeline()
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineMultisampleStateCreateInfo.html
 	VkPipelineMultisampleStateCreateInfo multisampling{};
 	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisampling.sampleShadingEnable = VK_FALSE;
-	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	multisampling.sampleShadingEnable = VK_TRUE;
+	multisampling.minSampleShading = 0.2f;
+	multisampling.rasterizationSamples = m_MSAASamples;
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineColorBlendAttachmentState.html
 	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
@@ -688,27 +696,27 @@ VkResult Application::CreateGraphicsPipeline()
 VkResult Application::CreateRenderPass()
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentDescription.html
-	std::array<VkAttachmentDescription, 2> attachmentDescriptions
+	std::array<VkAttachmentDescription, 3> attachmentDescriptions
 	{
 		// color attachment
 		VkAttachmentDescription
 		{
 			0,													// flags
 			m_ImageFormat,										// format
-			VK_SAMPLE_COUNT_1_BIT,								// samples
+			m_MSAASamples,										// samples
 			VK_ATTACHMENT_LOAD_OP_CLEAR,						// loadOp
 			VK_ATTACHMENT_STORE_OP_STORE,						// storeOp
 			VK_ATTACHMENT_LOAD_OP_DONT_CARE,					// stencilLoadOp
 			VK_ATTACHMENT_STORE_OP_DONT_CARE,					// stencilStoreOp
 			VK_IMAGE_LAYOUT_UNDEFINED,							// initialLayout
-			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR						// finalLayout
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL			// finalLayout
 		},
 		// depth buffering attachment
 		VkAttachmentDescription
 		{
 			0,
 			FindDepthFormat(m_PhysicalDevice),
-			VK_SAMPLE_COUNT_1_BIT,
+			m_MSAASamples,
 			VK_ATTACHMENT_LOAD_OP_CLEAR,
 			VK_ATTACHMENT_STORE_OP_DONT_CARE,
 			VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -716,19 +724,38 @@ VkResult Application::CreateRenderPass()
 			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 		},
+		// color resolve attachment
+		VkAttachmentDescription
+		{
+			0,	
+			m_ImageFormat,	
+			VK_SAMPLE_COUNT_1_BIT,	
+			VK_ATTACHMENT_LOAD_OP_DONT_CARE,	
+			VK_ATTACHMENT_STORE_OP_STORE,			
+			VK_ATTACHMENT_LOAD_OP_DONT_CARE,	
+			VK_ATTACHMENT_STORE_OP_DONT_CARE,	
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR	
+		}
 	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentReference.html
-	const VkAttachmentReference depthAttachmentReference
-	{
-		1,														// attachment
-		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL		// layout	
-	};
-
 	const VkAttachmentReference colorAttachmentReference
 	{
-		0,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		0,													// attachment
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL			// layout	
+	};
+
+	const VkAttachmentReference depthAttachmentReference
+	{														
+		1,														
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL		
+	};
+
+	const VkAttachmentReference resolveAttachmentReference
+	{
+		2,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL		
 	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription.html
@@ -740,7 +767,7 @@ VkResult Application::CreateRenderPass()
 		nullptr,									// pInputAttachments
 		1,											// colorAttachmentCount
 		&colorAttachmentReference,					// pColorAttachments
-		nullptr,									// pResolveAttachments
+		&resolveAttachmentReference,				// pResolveAttachments
 		&depthAttachmentReference,					// pDepthStencilAttachment
 		0,											// preserveAttachmentCount
 		nullptr										// pPreserveAttachments
@@ -753,7 +780,7 @@ VkResult Application::CreateRenderPass()
 		0,																								// dstSubpass
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,		// srcStageMask	
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,		// dstStageMask	
-		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,													// srcAccessMask	
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,			// srcAccessMask	
 		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,			// dstAccessMask
 		0																								// dependencyFlags
 	};
@@ -783,7 +810,7 @@ VkResult Application::CreateSwapChainFrameBuffers()
 
 	for (size_t i{ 0 }; i < m_SwapChainImageViews.size(); ++i)
 	{
-		const std::array<VkImageView, 2> attachments{ m_SwapChainImageViews.at(i), m_DepthImageView };
+		const std::array<VkImageView, 3> attachments{ m_ColorImageView, m_DepthImageView, m_SwapChainImageViews.at(i) };
 
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html
 		const VkFramebufferCreateInfo frameBufferCreateInfo
@@ -1033,6 +1060,7 @@ void Application::RecreateSwapChain()
 	if (CreateSwapChain() != VK_SUCCESS) throw std::runtime_error("Failed to recreate swap chain");
 	RetrieveSwapChainImages();
 	if (CreateSwapChainImageViews() != VK_SUCCESS) throw std::runtime_error("Failed to recreate swap chain image views");
+	CreateColorResources();
 	CreateDepthResources();
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("Failed to recreate swap chain frame buffers");
 }
@@ -1042,6 +1070,9 @@ void Application::CleanupSwapChain()
 	vkDestroyImageView(m_Device, m_DepthImageView, nullptr);
 	vkDestroyImage(m_Device, m_DepthImage, nullptr);
 	vkFreeMemory(m_Device, m_DepthMemory, nullptr);
+	vkDestroyImageView(m_Device, m_ColorImageView, nullptr);
+	vkDestroyImage(m_Device, m_ColorImage, nullptr);
+	vkFreeMemory(m_Device, m_ColorMemory, nullptr);
 
 	for (auto frameBuffer : m_SwapChainFrameBuffers)
 	{
@@ -1250,10 +1281,31 @@ void Application::CreateDepthResources()
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		m_DepthImage,
 		m_DepthMemory,
-		1
+		1,
+		m_MSAASamples
 	);
 
 	m_DepthImageView = CreateImageView(m_Device, m_DepthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 
 	TransitionImageLayout(m_Device, m_CommandPool, m_GrahicsQueue, m_DepthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1);
+}
+
+void Application::CreateColorResources()	
+{
+	CreateImage
+	( 
+		m_PhysicalDevice,
+		m_Device,
+		m_ImageExtend,
+		m_ImageFormat,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		m_ColorImage,
+		m_ColorMemory,
+		1,
+		m_MSAASamples
+	);
+
+	m_ColorImageView = CreateImageView(m_Device, m_ColorImage, m_ImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 }

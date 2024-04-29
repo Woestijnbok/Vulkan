@@ -76,7 +76,8 @@ void Texture::LoadTexture(const std::filesystem::path& path)
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		m_Image,
 		m_ImageMemory,
-		m_MipLevels
+		m_MipLevels,
+		VK_SAMPLE_COUNT_1_BIT
 	);
 
 	TransitionImageLayout(m_Device, m_CopyCommandPool, m_CopyQueu, m_Image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, m_MipLevels);

@@ -57,6 +57,7 @@ private:
     VkResult CreateDescriptorSets();
     void CreateTextureSampler();
     void CreateDepthResources();
+    void CreateColorResources();
 
     int m_Width;
     int m_Height;
@@ -101,7 +102,11 @@ private:
     VkImage m_DepthImage;
     VkDeviceMemory m_DepthMemory;
     VkImageView m_DepthImageView;
+    VkImage m_ColorImage;
+    VkDeviceMemory m_ColorMemory;
+    VkImageView m_ColorImageView;
     Camera* m_Camera;
+    VkSampleCountFlagBits m_MSAASamples;
 };
 
 #endif

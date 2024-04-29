@@ -429,7 +429,8 @@ void CreateImage
     VkMemoryPropertyFlags properties,
     VkImage& image,
     VkDeviceMemory& memory, 
-    uint32_t mipLevels
+    uint32_t mipLevels,
+    VkSampleCountFlagBits sampleCount
 )
 {
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html
@@ -443,7 +444,7 @@ void CreateImage
         VkExtent3D{ size.width, size.height, 1 },                                   // extent
         mipLevels,                                                                  // mipLevels
         1,                                                                          // arrayLayers
-        VK_SAMPLE_COUNT_1_BIT,                                                      // samples
+        sampleCount,                                                                // samples
         tiling,                                                                     // tiling
         usage,                                                                      // usage
         VK_SHARING_MODE_EXCLUSIVE,                                                  // sharingMode
@@ -946,4 +947,25 @@ void GenerateMipmaps
     );
 
     EndSingleTimeCommands(device, commandPool, queue, commandBuffer);
+}
+
+VkSampleCountFlagBits GetMaxUsableSampleCount
+(
+    VkPhysicalDevice device
+)
+{
+    VkPhysicalDeviceProperties physicalDeviceProperties{};
+    vkGetPhysicalDeviceProperties(device, &physicalDeviceProperties);
+
+    // We have to take both the color and depth buffer into acount
+    const VkSampleCountFlags Samplecount{ physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts };
+
+    // Get the highest possible sample count
+    if (Samplecount & VK_SAMPLE_COUNT_64_BIT) return VK_SAMPLE_COUNT_64_BIT;
+    else if (Samplecount & VK_SAMPLE_COUNT_32_BIT) return VK_SAMPLE_COUNT_32_BIT;
+    else if (Samplecount & VK_SAMPLE_COUNT_16_BIT) return VK_SAMPLE_COUNT_16_BIT;
+    else if (Samplecount & VK_SAMPLE_COUNT_8_BIT) return VK_SAMPLE_COUNT_8_BIT;
+    else if (Samplecount & VK_SAMPLE_COUNT_4_BIT) return VK_SAMPLE_COUNT_4_BIT;
+    else if (Samplecount & VK_SAMPLE_COUNT_2_BIT) return VK_SAMPLE_COUNT_2_BIT;
+    else return VK_SAMPLE_COUNT_1_BIT;
 }
