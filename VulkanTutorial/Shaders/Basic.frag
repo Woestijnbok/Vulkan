@@ -1,6 +1,11 @@
 #version 450
 
-layout(binding = 1) uniform sampler2D g_Sampler;
+layout(binding = 1) uniform sampler g_Sampler;
+layout(binding = 2) uniform texture2D g_BaseColorTexture;
+layout(binding = 3) uniform texture2D g_NormalTexture;
+layout(binding = 4) uniform texture2D g_MetalnessTexture;
+layout(binding = 5) uniform texture2D g_RoughnessTexture;
+layout(binding = 6) uniform texture2D g_AmbientOcclusionTexture;
 
 layout(location = 0) in vec3 g_InFragmentColor;
 layout(location = 1) in vec2 g_InTextureCoordinates;
@@ -19,5 +24,5 @@ void main()
     //vec3 diffuse = diff * texture(g_Sampler, g_InTextureCoordinates).rgb; // Assuming white light
 
 	//g_OutColor = vec4(diffuse, 1.0);
-    g_OutColor = texture(g_Sampler, g_InTextureCoordinates);
+    g_OutColor = texture(sampler2D(g_NormalTexture, g_Sampler), g_InTextureCoordinates);
 }

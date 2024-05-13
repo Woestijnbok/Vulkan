@@ -64,6 +64,10 @@ Application::Application(int width, int height) :
 	m_DescriptorPool{},
 	m_DescriptorSets{},
 	m_BaseColorTexture{},
+	m_NormalTexture{},
+	m_MetalnessTexture{},
+	m_RoughnessTexture{},
+	m_AmbientOcclusionTexture{},
 	m_TextureSampler{},
 	m_DepthImage{},
 	m_DepthMemory{},
@@ -90,6 +94,10 @@ Application::~Application()
 	delete m_Camera;
 	vkDestroySampler(m_Device, m_TextureSampler, nullptr);
 	delete m_BaseColorTexture;
+	delete m_NormalTexture;
+	delete m_MetalnessTexture;
+	delete m_RoughnessTexture;
+	delete m_AmbientOcclusionTexture;
 	for (auto mesh : m_Meshes)
 	{
 		delete mesh;
@@ -146,10 +154,11 @@ void Application::Run()
 
 void Application::InitializeMeshes()
 {
-	m_Meshes.push_back(new Mesh{m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/viking_room.obj"});
+	m_Meshes.push_back(new Mesh{m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/Scarlett_LP_rotated_knobs.obj"});
 
 	//m_Meshes.push_back(new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/vehicle.obj" });
-	//m_Meshes.at(0)->SetModelMatrix(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward));
+	m_Meshes.at(0)->SetModelMatrix(glm::scale(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward), glm::vec3{ 0.2f, 0.2f, 0.2f}));
+
 }
 
 void Application::InitializeWindow()
@@ -179,7 +188,6 @@ void Application::InitializeVulkan()
 		}
 	}
 
-
 	if (CreateVulkanInstance() != VK_SUCCESS) throw std::runtime_error("failed to create vulkan instance!");
 	if (SetupDebugMessenger() != VK_SUCCESS) throw std::runtime_error("failed to setup debug messenger!");
 	if (CreateSurface() != VK_SUCCESS) throw std::runtime_error("failed to create surface!");
@@ -198,8 +206,11 @@ void Application::InitializeVulkan()
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
-	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/viking_room.png" };
-	//m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_diffuse.png" };
+	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_diffuse.png" };
+	m_NormalTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_normal.png" };
+	m_MetalnessTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_metalness.png" };
+	m_RoughnessTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_roughness.png" };
+	m_AmbientOcclusionTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_ao.png" };
 	CreateTextureSampler();
 	if (CreateUniformBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create uniform buffers!");
 	if (CreateDescriptorPool() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor pool!");
@@ -494,7 +505,7 @@ VkResult Application::CreateSwapChainImageViews()
 VkResult Application::CreateDescriptorSetLayout()
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutBinding.html
-	const std::array<VkDescriptorSetLayoutBinding, 2> descriptorSetLayoutBindings
+	const std::array<VkDescriptorSetLayoutBinding, 7> descriptorSetLayoutBindings
 	{
 		// Uniform buffer object
 		VkDescriptorSetLayoutBinding
@@ -505,15 +516,60 @@ VkResult Application::CreateDescriptorSetLayout()
 			VK_SHADER_STAGE_VERTEX_BIT,					// stageFlags
 			nullptr										// pImmutableSamplers
 		},
-		// texture + sampler
+		// sampler
 		VkDescriptorSetLayoutBinding
 		{
 			1,
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			VK_DESCRIPTOR_TYPE_SAMPLER,	
 			1,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			nullptr
-		}
+		},
+		// base color texture
+		VkDescriptorSetLayoutBinding
+		{
+			2,
+			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,	
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
+		},
+		// normal texture
+		VkDescriptorSetLayoutBinding
+		{
+			3,
+			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
+		},
+		// metalness texture
+		VkDescriptorSetLayoutBinding
+		{
+			4,
+			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
+		},
+		// roughness texture
+		VkDescriptorSetLayoutBinding
+		{
+			5,
+			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
+		},
+		// ambient occlusion texture
+		VkDescriptorSetLayoutBinding
+		{
+			6,
+			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
+		},
 	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutCreateInfo.html
@@ -1186,15 +1242,50 @@ VkResult Application::CreateDescriptorSets()
 		};
 
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorImageInfo.html
-		const VkDescriptorImageInfo descriptorImageInfo
+		const VkDescriptorImageInfo descriptorSamplerInfo
 		{
 			m_TextureSampler,								// sampler
+			VK_NULL_HANDLE,									// imageView
+			VK_IMAGE_LAYOUT_UNDEFINED						// imageLayout
+		};
+
+		const VkDescriptorImageInfo descriptorBaseColorInfo
+		{
+			VK_NULL_HANDLE,									// sampler
 			m_BaseColorTexture->GetImageView(),				// imageView
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
 		};
 
+		const VkDescriptorImageInfo descriptorNormalInfo
+		{
+			VK_NULL_HANDLE,									// sampler	
+			m_NormalTexture->GetImageView(),				// imageView
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
+		};
+
+		const VkDescriptorImageInfo descriptorMetalnessInfo
+		{
+			VK_NULL_HANDLE,									// sampler	
+			m_MetalnessTexture->GetImageView(),				// imageView
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
+		};
+
+		const VkDescriptorImageInfo descriptorRoughnessInfo
+		{
+			VK_NULL_HANDLE,									// sampler
+			m_RoughnessTexture->GetImageView(),				// imageView
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
+		};
+
+		const VkDescriptorImageInfo descriptorAmbientOcclusionInfo
+		{
+			VK_NULL_HANDLE,									// sampler
+			m_AmbientOcclusionTexture->GetImageView(),		// imageView
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
+		};
+
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkWriteDescriptorSet.html
-		std::array<VkWriteDescriptorSet, 2> writeDescriptorSets
+		std::array<VkWriteDescriptorSet, 7> writeDescriptorSets
 		{
 			// Uniform buffer object
 			VkWriteDescriptorSet
@@ -1210,20 +1301,90 @@ VkResult Application::CreateDescriptorSets()
 				&descriptorBufferInfo,							// pBufferInfo
 				nullptr											// pTexelBufferView
 			},
-			// Texture + sampler
+			// sampler
+			VkWriteDescriptorSet
+			{
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,	
+				nullptr,
+				m_DescriptorSets.at(i),	
+				1,
+				0,
+				1,
+				VK_DESCRIPTOR_TYPE_SAMPLER,	
+				&descriptorSamplerInfo,		
+				nullptr,
+				nullptr
+			},
+			// base color texture
 			VkWriteDescriptorSet
 			{
 				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 				nullptr,
 				m_DescriptorSets.at(i),
-				1,
+				2,
 				0,
 				1,
-				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				&descriptorImageInfo,
+				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+				&descriptorBaseColorInfo,
 				nullptr,
 				nullptr
 			},
+			// normal texture
+			VkWriteDescriptorSet
+			{
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				nullptr,
+				m_DescriptorSets.at(i),
+				3,
+				0,
+				1,
+				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+				&descriptorNormalInfo,
+				nullptr,
+				nullptr
+			},
+			// metalness texture
+			VkWriteDescriptorSet
+			{
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				nullptr,
+				m_DescriptorSets.at(i),
+				4,
+				0,
+				1,
+				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+				&descriptorMetalnessInfo,
+				nullptr,
+				nullptr
+			},
+			// roughness texture
+			VkWriteDescriptorSet
+			{
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				nullptr,
+				m_DescriptorSets.at(i),
+				5,
+				0,
+				1,
+				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,	
+				&descriptorRoughnessInfo,
+				nullptr,
+				nullptr
+			},
+			// ambient Occlusion texture
+			VkWriteDescriptorSet
+			{
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				nullptr,
+				m_DescriptorSets.at(i),
+				6,
+				0,
+				1,
+				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,	
+				&descriptorAmbientOcclusionInfo,
+				nullptr,
+				nullptr
+			}
 		};
 
 		vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);

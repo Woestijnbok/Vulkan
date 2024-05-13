@@ -98,6 +98,10 @@ private:
     VkDescriptorPool m_DescriptorPool;
     std::vector<VkDescriptorSet> m_DescriptorSets;
     Texture* m_BaseColorTexture;
+    Texture* m_NormalTexture;
+    Texture* m_MetalnessTexture;
+    Texture* m_RoughnessTexture;
+    Texture* m_AmbientOcclusionTexture;
     VkSampler m_TextureSampler;
     VkImage m_DepthImage;
     VkDeviceMemory m_DepthMemory;
