@@ -20,12 +20,18 @@ const int g_MaxFramePerFlight{ 2 };
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
+#include <functional>
 
 #include "Application.h"
 #include "HelperFunctions.h"
 #include "Mesh.h"
 #include "Texture.h"
 #include "Camera.h"
+
+void GlobalKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	static_cast<Application*>(glfwGetWindowUserPointer(window))->KeyCallback(window, key, scancode, action, mods);
+}
 
 Application::Application(int width, int height) :
 	m_Width{ width },
@@ -168,6 +174,8 @@ void Application::InitializeWindow()
 	m_Window = glfwCreateWindow(m_Width, m_Height, "Vulkan", nullptr, nullptr);
 	glfwSetWindowUserPointer(m_Window, this);
 	glfwSetFramebufferSizeCallback(m_Window, &FrameBufferResizedCallback);
+	glfwSetKeyCallback(m_Window, GlobalKeyCallback);
+	glfwSetWindowUserPointer(m_Window, this);
 
 	if (m_Window == nullptr) throw std::runtime_error("failed to create window!");
 }
@@ -1140,6 +1148,20 @@ void Application::FrameBufferResizedCallback(GLFWwindow* window, int width, int 
 
 	Application* app{ reinterpret_cast<Application*>(glfwGetWindowUserPointer(window)) };
 	app->m_FrameBufferResized = true;
+}
+
+void Application::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)	
+{
+	window;	
+	key;		
+	scancode;	
+	action;	
+	mods;	
+
+	if (key == GLFW_KEY_R && action == GLFW_RELEASE)	
+	{	
+		m_Meshes.at(0)->SwitchRotate();
+	}
 }
 
 VkResult Application::CreateUniformBuffers()

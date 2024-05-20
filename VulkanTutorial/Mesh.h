@@ -72,6 +72,7 @@ public:
 	VkBuffer GetIndexBuffer() const;
 	glm::mat4 GetModelMatrix() const;
 	void SetModelMatrix(const glm::mat4& matrix);
+	void SwitchRotate();
 
 private:
 	VkPhysicalDevice m_PhysicalDevice;
@@ -85,6 +86,7 @@ private:
 	VkBuffer m_IndexBuffer;
 	VkDeviceMemory m_IndexBufferMemory;
 	glm::mat4 m_ModelMatrix;
+	bool m_Rotate;
 
 	void LoadMesh(const std::filesystem::path& path);
 	VkResult CreateVertexBuffer();

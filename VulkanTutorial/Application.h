@@ -9,6 +9,8 @@ class Texture;
 struct GLFWwindow;
 class Camera;
 
+void GlobalKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
 class Application
 {
 public:
@@ -23,6 +25,7 @@ public:
 
 	void Run();
     static void FrameBufferResizedCallback(GLFWwindow* window, int width, int height);
+    void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 private:
 

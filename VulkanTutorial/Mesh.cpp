@@ -121,7 +121,8 @@ Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyC
 	m_Indices{},
 	m_IndexBuffer{},
 	m_IndexBufferMemory{},
-	m_ModelMatrix{ 1.0f }
+	m_ModelMatrix{ 1.0f },
+	m_Rotate{ true }
 {
 	LoadMesh(path);
 	if (CreateVertexBuffer() != VK_SUCCESS) throw std::runtime_error("Failed to create vertex buffer!");
@@ -158,8 +159,19 @@ Mesh::~Mesh()
 
 void Mesh::Update(std::chrono::duration<float> elapsedSeconds)
 {
-	elapsedSeconds;
+	if (!m_Rotate) return;
+
+	// Calculate total rotation angle for 2 seconds
+	constexpr float totalRotationDegrees = 360.0f; // Rotate fully in 2 seconds
+	float rotationSpeed = totalRotationDegrees / 4.0f; // 180 degrees per second for 2 seconds
+
+	// Calculate rotation angle based on elapsed time
+	float rotationAngle = rotationSpeed * elapsedSeconds.count();
+
+	// Apply rotation to the model matrix
+	m_ModelMatrix = glm::rotate(m_ModelMatrix, glm::radians(rotationAngle), g_WorldRight);
 }
+
 
 const std::vector<Vertex>& Mesh::GetVertices() const
 {
@@ -189,6 +201,11 @@ glm::mat4 Mesh::GetModelMatrix() const
 void Mesh::SetModelMatrix(const glm::mat4& matrix)
 {
 	m_ModelMatrix = matrix;
+}
+
+void Mesh::SwitchRotate()
+{
+	m_Rotate = !m_Rotate;
 }
 
 VkResult Mesh::CreateVertexBuffer()
