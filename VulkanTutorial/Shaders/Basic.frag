@@ -3,26 +3,55 @@
 layout(binding = 1) uniform sampler g_Sampler;
 layout(binding = 2) uniform texture2D g_BaseColorTexture;
 layout(binding = 3) uniform texture2D g_NormalTexture;
-layout(binding = 4) uniform texture2D g_MetalnessTexture;
-layout(binding = 5) uniform texture2D g_RoughnessTexture;
-layout(binding = 6) uniform texture2D g_AmbientOcclusionTexture;
+layout(binding = 4) uniform texture2D g_GlossTexture;
+layout(binding = 5) uniform texture2D g_SpecularTexture;
 
-layout(location = 0) in vec3 g_InFragmentColor;
-layout(location = 1) in vec2 g_InTextureCoordinates;
+layout(location = 0) in vec2 g_InTextureCoordinates;
+layout(location = 1) in vec3 g_InViewDirection;
 layout(location = 2) in vec3 g_InNormal;
+layout(location = 3) in vec3 g_InTangent;
 
 layout(location = 0) out vec4 g_OutColor;
 
-const vec3 g_LightDirection = vec3(0.0, 1.0, -1.0);
+const float g_PI = 3.14f;
+const vec3 g_LightDirection = vec3(0.577, -0.577, 0.577);
+const vec3 g_AmbientColor = vec3(0.03, 0.03, 0.03);
+const float g_LightIntensity = 7.0;
+const float g_Shininess = 25.0;
+
+vec3 CalculateNormal()
+{
+    vec3 normal;
+    
+    const vec3 biNormal = normalize(cross(g_InNormal, g_InTangent));
+    const mat3 tangentSpaceMatrix = mat3(g_InTangent, biNormal, g_InNormal);
+    const vec3 SampledNormal = texture(sampler2D(g_NormalTexture, g_Sampler), g_InTextureCoordinates).rgb;
+    normal = normalize(SampledNormal * tangentSpaceMatrix);
+   
+    return normal;
+}
+
+float Phong(float ks, float exponent, vec3 lightDirection, vec3 viewDirection, vec3 normal)
+{
+    const vec3 reflection = reflect(lightDirection, normal);
+    const float cosine = clamp(dot(reflection, viewDirection), 0.0, 1.0);
+    const float phong = 1.0 * ks * pow(cosine, exponent);
+    
+    return phong;
+}
 
 void main()
 {
-	// Calculate the dot product between the normal and the light direction
-    //float diff = max(dot(g_InNormal, g_LightDirection), 0.2);
+	const vec3 normal = CalculateNormal();
+    const float specular = texture(sampler2D(g_SpecularTexture, g_Sampler), g_InTextureCoordinates).r;
+    const float phongExponent = texture(sampler2D(g_GlossTexture, g_Sampler), g_InTextureCoordinates).r;
+    const float phong = Phong(specular, phongExponent * g_Shininess, g_LightDirection, g_InViewDirection, normal);
+    const vec3 diffuseColor = texture(sampler2D(g_BaseColorTexture, g_Sampler), g_InTextureCoordinates).rgb;
+    const vec3 specularColor = vec3(phong, phong, phong);
+    
+    const vec3 color = diffuseColor + specularColor + g_AmbientColor;
 
-    // Simple diffuse lighting
-    //vec3 diffuse = diff * texture(g_Sampler, g_InTextureCoordinates).rgb; // Assuming white light
+    g_OutColor  = vec4(color, 1.0f);
 
-	//g_OutColor = vec4(diffuse, 1.0);
-    g_OutColor = texture(sampler2D(g_NormalTexture, g_Sampler), g_InTextureCoordinates);
+    //g_OutColor = texture(sampler2D(g_BaseColorTexture, g_Sampler), g_InTextureCoordinates);
 }

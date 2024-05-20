@@ -2,13 +2,17 @@
 
 #include <tiny_obj_loader.h>
 #include <unordered_map>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "Mesh.h"
 #include "HelperFunctions.h"
+#include "Camera.h"
 
 bool Vertex::operator==(const Vertex& other) const
 {
-	return (Position == other.Position) and (Color == other.Color) and (TextureCoordinates == other.TextureCoordinates);
+	return (Position == other.Position) and (Color == other.Color) and (TextureCoordinates == other.TextureCoordinates)
+		and (Tangent == other.Tangent);
 }
 
 VkVertexInputBindingDescription Vertex::GetBindingDescription()
@@ -24,10 +28,10 @@ VkVertexInputBindingDescription Vertex::GetBindingDescription()
 	return bindingDescription;
 }
 
-std::array<VkVertexInputAttributeDescription, 4> Vertex::GetAttributeDescriptions()
+std::array<VkVertexInputAttributeDescription, 5> Vertex::GetAttributeDescriptions()
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkVertexInputAttributeDescription.html
-	const std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions
+	const std::array<VkVertexInputAttributeDescription, 5> attributeDescriptions
 	{
 		// Position
 		VkVertexInputAttributeDescription
@@ -61,6 +65,14 @@ std::array<VkVertexInputAttributeDescription, 4> Vertex::GetAttributeDescription
 			VK_FORMAT_R32G32B32_SFLOAT,		
 			offsetof(Vertex, Normal)		
 		},
+		// Tangent
+		VkVertexInputAttributeDescription
+		{
+			4,
+			0,
+			VK_FORMAT_R32G32B32_SFLOAT,
+			offsetof(Vertex, Tangent)
+		}
 	};
 
 	return attributeDescriptions;
@@ -89,6 +101,11 @@ size_t std::hash<Vertex>::operator()(const Vertex& vertex) const
 	hash_combine(hashValue, vertex.Normal.x);
 	hash_combine(hashValue, vertex.Normal.y);
 	hash_combine(hashValue, vertex.Normal.z);
+
+	// Hash Tangent
+	hash_combine(hashValue, vertex.Tangent.x);
+	hash_combine(hashValue, vertex.Tangent.y);
+	hash_combine(hashValue, vertex.Tangent.z);
 
 	return hashValue;
 }
@@ -137,6 +154,11 @@ Mesh::~Mesh()
 	// Index buffer
 	vkDestroyBuffer(m_Device, m_IndexBuffer, nullptr);
 	vkFreeMemory(m_Device, m_IndexBufferMemory, nullptr);
+}
+
+void Mesh::Update(std::chrono::duration<float> elapsedSeconds)
+{
+	elapsedSeconds;
 }
 
 const std::vector<Vertex>& Mesh::GetVertices() const
@@ -255,8 +277,7 @@ VkResult Mesh::CreateIndexBuffer()
 	return result;
 }
 
-void Mesh::LoadMesh(const std::filesystem::path& path)
-{
+void Mesh::LoadMesh(const std::filesystem::path& path) {
 	if (!std::filesystem::exists(path)) throw std::runtime_error("Invalid texture file path given!");
 
 	tinyobj::attrib_t attributes{};
@@ -264,48 +285,112 @@ void Mesh::LoadMesh(const std::filesystem::path& path)
 	std::vector<tinyobj::material_t> materials{};
 	std::string error{};
 
-	if (!tinyobj::LoadObj(&attributes, &shapes, &materials, &error, path.string().c_str())) 
-	{
+	if (!tinyobj::LoadObj(&attributes, &shapes, &materials, &error, path.string().c_str())) {
 		throw std::runtime_error(error);
 	}
 
 	std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 
-	for (const auto& shape : shapes) 
-	{
-		for (const auto& index : shape.mesh.indices) 
-		{
-			Vertex vertex{};
+	for (const auto& shape : shapes) {
+		for (size_t i = 0; i < shape.mesh.indices.size(); i += 3) {
+			// Indices for the triangle
+			tinyobj::index_t idx0 = shape.mesh.indices[i];
+			tinyobj::index_t idx1 = shape.mesh.indices[i + 1];
+			tinyobj::index_t idx2 = shape.mesh.indices[i + 2];
 
-			vertex.Position = glm::vec3
-			{
-				attributes.vertices[3 * index.vertex_index + 0],
-				attributes.vertices[3 * index.vertex_index + 1],
-				attributes.vertices[3 * index.vertex_index + 2]
-			};
+			// Vertices of the triangle
+			Vertex vertex0 = {};
+			Vertex vertex1 = {};
+			Vertex vertex2 = {};
 
-			vertex.TextureCoordinates = glm::vec2
-			{
-				attributes.texcoords[2 * index.texcoord_index + 0],
-				1.0f - attributes.texcoords[2 * index.texcoord_index + 1]
-			};
+			vertex0.Position = glm::vec3(
+				attributes.vertices[3 * idx0.vertex_index + 0],
+				attributes.vertices[3 * idx0.vertex_index + 1],
+				attributes.vertices[3 * idx0.vertex_index + 2]
+			);
+			vertex1.Position = glm::vec3(
+				attributes.vertices[3 * idx1.vertex_index + 0],
+				attributes.vertices[3 * idx1.vertex_index + 1],
+				attributes.vertices[3 * idx1.vertex_index + 2]
+			);
+			vertex2.Position = glm::vec3(
+				attributes.vertices[3 * idx2.vertex_index + 0],
+				attributes.vertices[3 * idx2.vertex_index + 1],
+				attributes.vertices[3 * idx2.vertex_index + 2]
+			);
 
-			vertex.Color = glm::vec3{ 1.0f, 1.0f, 1.0f };
+			vertex0.TextureCoordinates = glm::vec2(
+				attributes.texcoords[2 * idx0.texcoord_index + 0],
+				1.0f - attributes.texcoords[2 * idx0.texcoord_index + 1]
+			);
+			vertex1.TextureCoordinates = glm::vec2(
+				attributes.texcoords[2 * idx1.texcoord_index + 0],
+				1.0f - attributes.texcoords[2 * idx1.texcoord_index + 1]
+			);
+			vertex2.TextureCoordinates = glm::vec2(
+				attributes.texcoords[2 * idx2.texcoord_index + 0],
+				1.0f - attributes.texcoords[2 * idx2.texcoord_index + 1]
+			);
 
-			vertex.Normal = glm::vec3
-			{
-				attributes.normals[3 * index.normal_index + 0],
-				attributes.normals[3 * index.normal_index + 1],
-				attributes.normals[3 * index.normal_index + 2]
-			};
+			vertex0.Normal = glm::vec3(
+				attributes.normals[3 * idx0.normal_index + 0],
+				attributes.normals[3 * idx0.normal_index + 1],
+				attributes.normals[3 * idx0.normal_index + 2]
+			);
+			vertex1.Normal = glm::vec3(
+				attributes.normals[3 * idx1.normal_index + 0],
+				attributes.normals[3 * idx1.normal_index + 1],
+				attributes.normals[3 * idx1.normal_index + 2]
+			);
+			vertex2.Normal = glm::vec3(
+				attributes.normals[3 * idx2.normal_index + 0],
+				attributes.normals[3 * idx2.normal_index + 1],
+				attributes.normals[3 * idx2.normal_index + 2]
+			);
 
-			if (uniqueVertices.count(vertex) == 0) 
-			{
-				uniqueVertices[vertex] = static_cast<uint32_t>(m_Vertices.size());
-				m_Vertices.push_back(vertex);
+			// Calculate edges of the triangle
+			glm::vec3 edge1 = vertex1.Position - vertex0.Position;
+			glm::vec3 edge2 = vertex2.Position - vertex0.Position;
+
+			// Calculate the difference in UV coordinates
+			glm::vec2 deltaUV1 = vertex1.TextureCoordinates - vertex0.TextureCoordinates;
+			glm::vec2 deltaUV2 = vertex2.TextureCoordinates - vertex0.TextureCoordinates;
+
+			float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+			glm::vec3 tangent;
+			tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+			tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+			tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+
+			vertex0.Tangent += tangent;
+			vertex1.Tangent += tangent;
+			vertex2.Tangent += tangent;
+
+			// Insert vertices into the uniqueVertices map and m_Vertices vector
+			if (uniqueVertices.count(vertex0) == 0) {
+				uniqueVertices[vertex0] = static_cast<uint32_t>(m_Vertices.size());
+				m_Vertices.push_back(vertex0);
 			}
 
-			m_Indices.push_back(uniqueVertices[vertex]);
+			if (uniqueVertices.count(vertex1) == 0) {
+				uniqueVertices[vertex1] = static_cast<uint32_t>(m_Vertices.size());
+				m_Vertices.push_back(vertex1);
+			}
+
+			if (uniqueVertices.count(vertex2) == 0) {
+				uniqueVertices[vertex2] = static_cast<uint32_t>(m_Vertices.size());
+				m_Vertices.push_back(vertex2);
+			}
+
+			m_Indices.push_back(uniqueVertices[vertex0]);
+			m_Indices.push_back(uniqueVertices[vertex1]);
+			m_Indices.push_back(uniqueVertices[vertex2]);
 		}
+	}
+
+	// Normalize the tangents
+	for (auto& vertex : m_Vertices) {
+		vertex.Tangent = glm::normalize(vertex.Tangent);
 	}
 }

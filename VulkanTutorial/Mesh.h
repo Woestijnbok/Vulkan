@@ -13,11 +13,12 @@ struct Vertex final
 	glm::vec3 Color;
 	glm::vec2 TextureCoordinates;
 	glm::vec3 Normal;
+	glm::vec3 Tangent;
 
 	bool operator==(const Vertex& other) const;
 
 	static VkVertexInputBindingDescription GetBindingDescription();
-	static std::array<VkVertexInputAttributeDescription, 4> GetAttributeDescriptions();
+	static std::array<VkVertexInputAttributeDescription, 5> GetAttributeDescriptions();
 };
 
 namespace std 
@@ -64,6 +65,7 @@ public:
 	Mesh(Mesh&&) = delete;
 	Mesh& operator=(Mesh&&) = delete;
 
+	void Update(std::chrono::duration<float> seconds);
 	const std::vector<Vertex>& GetVertices() const;
 	VkBuffer GetVertexBuffer() const;
 	const std::vector<uint32_t> GetIndices() const;

@@ -99,9 +99,8 @@ private:
     std::vector<VkDescriptorSet> m_DescriptorSets;
     Texture* m_BaseColorTexture;
     Texture* m_NormalTexture;
-    Texture* m_MetalnessTexture;
-    Texture* m_RoughnessTexture;
-    Texture* m_AmbientOcclusionTexture;
+    Texture* m_GlossTexture;
+    Texture* m_SpecularTexture;
     VkSampler m_TextureSampler;
     VkImage m_DepthImage;
     VkDeviceMemory m_DepthMemory;

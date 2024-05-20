@@ -11,7 +11,7 @@ int main()
     try 
     {
         std::cout << std::format("The application is {} bytes.", sizeof(Application)) << std::endl;
-        Application application{ 800, 600 };
+        Application application{ 1600, 900 };
         application.Run();
     }
     catch (const std::exception& exception) 

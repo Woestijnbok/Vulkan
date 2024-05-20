@@ -65,9 +65,8 @@ Application::Application(int width, int height) :
 	m_DescriptorSets{},
 	m_BaseColorTexture{},
 	m_NormalTexture{},
-	m_MetalnessTexture{},
-	m_RoughnessTexture{},
-	m_AmbientOcclusionTexture{},
+	m_GlossTexture{},
+	m_SpecularTexture{},
 	m_TextureSampler{},
 	m_DepthImage{},
 	m_DepthMemory{},
@@ -95,9 +94,8 @@ Application::~Application()
 	vkDestroySampler(m_Device, m_TextureSampler, nullptr);
 	delete m_BaseColorTexture;
 	delete m_NormalTexture;
-	delete m_MetalnessTexture;
-	delete m_RoughnessTexture;
-	delete m_AmbientOcclusionTexture;
+	delete m_GlossTexture;
+	delete m_SpecularTexture;
 	for (auto mesh : m_Meshes)
 	{
 		delete mesh;
@@ -144,6 +142,7 @@ void Application::Run()
 
 		glfwPollEvents();
 		m_Camera->Update(m_Window, time);
+		m_Meshes.at(0)->Update(time);
 		DrawFrame();
 
 		lastTime = currentTime;
@@ -157,7 +156,7 @@ void Application::InitializeMeshes()
 	//m_Meshes.push_back(new Mesh{m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/Scarlett_LP_rotated_knobs.obj"});
 
 	m_Meshes.push_back(new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/vehicle.obj" });
-	m_Meshes.at(0)->SetModelMatrix(glm::scale(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward), glm::vec3{ 0.2f, 0.2f, 0.2f}));
+	m_Meshes.at(0)->SetModelMatrix(glm::scale(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward), glm::vec3{ 0.1f, 0.1f, 0.1f}));
 
 }
 
@@ -208,9 +207,8 @@ void Application::InitializeVulkan()
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
 	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_diffuse.png" };
 	m_NormalTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_normal.png" };
-	m_MetalnessTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_metalness.png" };
-	m_RoughnessTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_roughness.png" };
-	m_AmbientOcclusionTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_ao.png" };
+	m_GlossTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_gloss.png" };
+	m_SpecularTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_specular.png" };
 	CreateTextureSampler();
 	if (CreateUniformBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create uniform buffers!");
 	if (CreateDescriptorPool() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor pool!");
@@ -505,7 +503,7 @@ VkResult Application::CreateSwapChainImageViews()
 VkResult Application::CreateDescriptorSetLayout()
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutBinding.html
-	const std::array<VkDescriptorSetLayoutBinding, 7> descriptorSetLayoutBindings
+	const std::array<VkDescriptorSetLayoutBinding, 6> descriptorSetLayoutBindings
 	{
 		// Uniform buffer object
 		VkDescriptorSetLayoutBinding
@@ -543,7 +541,7 @@ VkResult Application::CreateDescriptorSetLayout()
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			nullptr
 		},
-		// metalness texture
+		// Gloss texture
 		VkDescriptorSetLayoutBinding
 		{
 			4,
@@ -552,7 +550,7 @@ VkResult Application::CreateDescriptorSetLayout()
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			nullptr
 		},
-		// roughness texture
+		// Specular texture
 		VkDescriptorSetLayoutBinding
 		{
 			5,
@@ -560,16 +558,7 @@ VkResult Application::CreateDescriptorSetLayout()
 			1,
 			VK_SHADER_STAGE_FRAGMENT_BIT,
 			nullptr
-		},
-		// ambient occlusion texture
-		VkDescriptorSetLayoutBinding
-		{
-			6,
-			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-			1,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			nullptr
-		},
+		}
 	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutCreateInfo.html
@@ -1201,7 +1190,7 @@ VkResult Application::CreateDescriptorPool()
 		VkDescriptorPoolSize	
 		{
 			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-			static_cast<uint32_t>(g_MaxFramePerFlight) * 5
+			static_cast<uint32_t>(g_MaxFramePerFlight) * 4
 		}
 	};
 
@@ -1269,29 +1258,22 @@ VkResult Application::CreateDescriptorSets()
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
 		};
 
-		const VkDescriptorImageInfo descriptorMetalnessInfo
+		const VkDescriptorImageInfo descriptorGlossInfo
 		{
 			VK_NULL_HANDLE,									// sampler	
-			m_MetalnessTexture->GetImageView(),				// imageView
+			m_GlossTexture->GetImageView(),					// imageView
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
 		};
 
-		const VkDescriptorImageInfo descriptorRoughnessInfo
+		const VkDescriptorImageInfo descriptorSpecularInfo
 		{
 			VK_NULL_HANDLE,									// sampler
-			m_RoughnessTexture->GetImageView(),				// imageView
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
-		};
-
-		const VkDescriptorImageInfo descriptorAmbientOcclusionInfo
-		{
-			VK_NULL_HANDLE,									// sampler
-			m_AmbientOcclusionTexture->GetImageView(),		// imageView
+			m_SpecularTexture->GetImageView(),				// imageView
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
 		};
 
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkWriteDescriptorSet.html
-		std::array<VkWriteDescriptorSet, 7> writeDescriptorSets
+		std::array<VkWriteDescriptorSet, 6> writeDescriptorSets
 		{
 			// Uniform buffer object
 			VkWriteDescriptorSet
@@ -1349,7 +1331,7 @@ VkResult Application::CreateDescriptorSets()
 				nullptr,
 				nullptr
 			},
-			// metalness texture
+			// Gloss texture
 			VkWriteDescriptorSet
 			{
 				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -1359,11 +1341,11 @@ VkResult Application::CreateDescriptorSets()
 				0,
 				1,
 				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-				&descriptorMetalnessInfo,
+				&descriptorGlossInfo,
 				nullptr,
 				nullptr
 			},
-			// roughness texture
+			// Specular texture
 			VkWriteDescriptorSet
 			{
 				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -1373,21 +1355,7 @@ VkResult Application::CreateDescriptorSets()
 				0,
 				1,
 				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,	
-				&descriptorRoughnessInfo,
-				nullptr,
-				nullptr
-			},
-			// ambient Occlusion texture
-			VkWriteDescriptorSet
-			{
-				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				nullptr,
-				m_DescriptorSets.at(i),
-				6,
-				0,
-				1,
-				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,	
-				&descriptorAmbientOcclusionInfo,
+				&descriptorSpecularInfo,
 				nullptr,
 				nullptr
 			}
