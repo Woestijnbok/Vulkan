@@ -5,6 +5,7 @@ layout(binding = 0) uniform UniformBufferObject
     mat4 ModelMatrix;
     mat4 ViewMatrix;
     mat4 ProjectionMatrix;
+    vec3 CameraPosition;
 } g_Matrices;
 
 layout(location = 0) in vec3 g_InPosition;

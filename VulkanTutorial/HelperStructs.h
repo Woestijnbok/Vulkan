@@ -26,6 +26,7 @@ struct UniformBufferObject final
 	alignas(16) glm::mat4 ModelMatrix;
 	alignas(16) glm::mat4 ViewMatrix;
 	alignas(16) glm::mat4 ProjectionMatrix;
+	alignas(16) glm::vec3 CameraPosition;
 };
 
 #endif

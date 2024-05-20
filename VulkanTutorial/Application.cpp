@@ -154,9 +154,9 @@ void Application::Run()
 
 void Application::InitializeMeshes()
 {
-	m_Meshes.push_back(new Mesh{m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/Scarlett_LP_rotated_knobs.obj"});
+	//m_Meshes.push_back(new Mesh{m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/Scarlett_LP_rotated_knobs.obj"});
 
-	//m_Meshes.push_back(new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/vehicle.obj" });
+	m_Meshes.push_back(new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/vehicle.obj" });
 	m_Meshes.at(0)->SetModelMatrix(glm::scale(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward), glm::vec3{ 0.2f, 0.2f, 0.2f}));
 
 }
@@ -206,8 +206,8 @@ void Application::InitializeVulkan()
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
-	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_diffuse.png" };
-	m_NormalTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_normal.png" };
+	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_diffuse.png" };
+	m_NormalTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_normal.png" };
 	m_MetalnessTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_metalness.png" };
 	m_RoughnessTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_roughness.png" };
 	m_AmbientOcclusionTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_ao.png" };
@@ -992,15 +992,16 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
 void Application::UpdateUniformBuffer(uint32_t currentImage, Mesh* mesh)
 {
-	UniformBufferObject matrices
+	UniformBufferObject ubo
 	{
 		mesh->GetModelMatrix(),
 		m_Camera->GetViewMatrx(),
-		m_Camera->GetProjectionMatrix()
+		m_Camera->GetProjectionMatrix(),
+		m_Camera->GetPosition()
 	};
-	matrices.ProjectionMatrix[1][1] *= -1;
+	ubo.ProjectionMatrix[1][1] *= -1;
 
-	memcpy(m_UniformBufferMaps[currentImage], &matrices, sizeof(UniformBufferObject));
+	memcpy(m_UniformBufferMaps[currentImage], &ubo, sizeof(UniformBufferObject));
 }
 
 void Application::DrawFrame()
@@ -1185,7 +1186,7 @@ VkResult Application::CreateUniformBuffers()
 VkResult Application::CreateDescriptorPool()
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorPoolSize.html
-	std::array< VkDescriptorPoolSize, 2> descriptorPoolSizes
+	std::array< VkDescriptorPoolSize, 3> descriptorPoolSizes
 	{
 		VkDescriptorPoolSize
 		{
@@ -1194,8 +1195,13 @@ VkResult Application::CreateDescriptorPool()
 		},
 		VkDescriptorPoolSize
 		{
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			VK_DESCRIPTOR_TYPE_SAMPLER,	
 			static_cast<uint32_t>(g_MaxFramePerFlight)
+		},
+		VkDescriptorPoolSize	
+		{
+			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+			static_cast<uint32_t>(g_MaxFramePerFlight) * 5
 		}
 	};
 

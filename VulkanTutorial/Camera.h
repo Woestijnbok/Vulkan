@@ -24,6 +24,7 @@ public:
     glm::mat4 GetViewMatrx() const;
     glm::mat4 GetProjectionMatrix() const;
     void SetStartPosition(const glm::vec3& position, float yaw, float pitch);
+    glm::vec3 GetPosition() const;
 
 private:
     const float m_MovementSpeed;

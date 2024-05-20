@@ -59,6 +59,11 @@ void Camera::SetStartPosition(const glm::vec3& position, float yaw, float pitch)
     CalculateViewMatrix();
 }
 
+glm::vec3 Camera::GetPosition() const
+{
+    return m_Position;
+}
+
 void Camera::HandleCameraMovement(GLFWwindow* window, std::chrono::duration<float> seconds)
 {
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
