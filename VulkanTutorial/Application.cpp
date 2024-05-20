@@ -5,7 +5,7 @@
 #ifdef NDEBUG
 	const bool g_EnableValidationlayers{ false };
 #else
-	const bool g_EnableValidationlayers{ true };
+	const bool g_EnableValidationlayers{ false };
 #endif
 
 const int g_MaxFramePerFlight{ 2 };

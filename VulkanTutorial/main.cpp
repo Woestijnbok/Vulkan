@@ -1,7 +1,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
-#include <vld.h>
+//#include <vld.h>
 #include <format>
 
 #include "Application.h"
