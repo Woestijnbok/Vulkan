@@ -5,7 +5,7 @@
 #include "Texture.h"
 #include "HelperFunctions.h"
 
-Texture::Texture(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::filesystem::path& path) :
+Texture::Texture(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::filesystem::path& path, VkFormat format) :
 	m_PhysicalDevice{ physicalDevice },
 	m_Device{ device },
 	m_CopyCommandPool{ copyCommandPool },
@@ -14,7 +14,7 @@ Texture::Texture(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool
 	m_ImageMemory{},
 	m_ImageView{}
 {
-	LoadTexture(path);
+	LoadTexture(path, format);
 }
 
 Texture::~Texture()
@@ -34,7 +34,7 @@ uint32_t Texture::GetMipLevels() const
 	return m_MipLevels;
 }
 
-void Texture::LoadTexture(const std::filesystem::path& path)
+void Texture::LoadTexture(const std::filesystem::path& path, VkFormat format)
 {
 	if (!std::filesystem::exists(path)) throw std::runtime_error("Invalid texture file path given!");
 
@@ -70,7 +70,7 @@ void Texture::LoadTexture(const std::filesystem::path& path)
 		m_PhysicalDevice,
 		m_Device,
 		VkExtent2D{ uint32_t(textureWidth), uint32_t(textureHeight) },
-		VK_FORMAT_R8G8B8A8_SRGB,
+		format,
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -80,13 +80,13 @@ void Texture::LoadTexture(const std::filesystem::path& path)
 		VK_SAMPLE_COUNT_1_BIT
 	);
 
-	TransitionImageLayout(m_Device, m_CopyCommandPool, m_CopyQueu, m_Image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, m_MipLevels);
+	TransitionImageLayout(m_Device, m_CopyCommandPool, m_CopyQueu, m_Image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, m_MipLevels);
 	CopyBufferToImage(m_Device, m_CopyCommandPool, m_CopyQueu, stagingPixelBuffer, m_Image, static_cast<uint32_t>(textureWidth), static_cast<uint32_t>(textureHeight));
 	
-	GenerateMipmaps(m_PhysicalDevice, m_Device, m_CopyCommandPool, m_CopyQueu, m_Image, VK_FORMAT_R8G8B8A8_SRGB, textureWidth, textureHeight, m_MipLevels);
+	GenerateMipmaps(m_PhysicalDevice, m_Device, m_CopyCommandPool, m_CopyQueu, m_Image, format, textureWidth, textureHeight, m_MipLevels);
 
 	vkDestroyBuffer(m_Device, stagingPixelBuffer, nullptr);
 	vkFreeMemory(m_Device, stagingPixelBufferMemory, nullptr);
 
-	m_ImageView = CreateImageView(m_Device, m_Image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, m_MipLevels);	
+	m_ImageView = CreateImageView(m_Device, m_Image, format, VK_IMAGE_ASPECT_COLOR_BIT, m_MipLevels);	
 }

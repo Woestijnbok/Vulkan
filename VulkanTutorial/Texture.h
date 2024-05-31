@@ -7,7 +7,7 @@
 class Texture
 {
 public:
-	Texture(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::filesystem::path& path);
+	Texture(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::filesystem::path& path, VkFormat format);
 	~Texture();
 
 	Texture(const Texture&) = delete;
@@ -28,7 +28,7 @@ private:
 	VkImageView m_ImageView;
 	uint32_t m_MipLevels;
 
-	void LoadTexture(const std::filesystem::path& path);
+	void LoadTexture(const std::filesystem::path& path, VkFormat format);
 };
 
 #endif

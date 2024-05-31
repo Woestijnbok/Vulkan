@@ -5,7 +5,7 @@
 #ifdef NDEBUG
 	const bool g_EnableValidationlayers{ false };
 #else
-	const bool g_EnableValidationlayers{ false };
+	const bool g_EnableValidationlayers{ true };
 #endif
 
 const int g_MaxFramePerFlight{ 2 };
@@ -213,10 +213,10 @@ void Application::InitializeVulkan()
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
-	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_diffuse.png" };
-	m_NormalTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_normal.png" };
-	m_GlossTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_gloss.png" };
-	m_SpecularTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_specular.png" };
+	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_diffuse.png", VK_FORMAT_R8G8B8A8_SRGB };
+	m_NormalTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_normal.png", VK_FORMAT_R8G8B8A8_UNORM };	
+	m_GlossTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_gloss.png", VK_FORMAT_R8G8B8A8_UNORM };
+	m_SpecularTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_specular.png", VK_FORMAT_R8G8B8A8_UNORM };
 	CreateTextureSampler();
 	if (CreateUniformBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create uniform buffers!");
 	if (CreateDescriptorPool() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor pool!");
