@@ -81,7 +81,8 @@ Application::Application(int width, int height) :
 	m_ColorMemory{},
 	m_ColorImageView{},
 	m_Camera{},
-	m_MSAASamples{ VK_SAMPLE_COUNT_1_BIT }
+	m_MSAASamples{ VK_SAMPLE_COUNT_1_BIT },
+	m_PushConstants{ 0 }	
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -92,6 +93,13 @@ Application::Application(int width, int height) :
 
 	//m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 1000.0f, 15.0f };
 	//m_Camera->SetStartPosition(glm::vec3{ 34.68f, 29.46f, 10.52f }, 0.73f, -0.29f);
+
+	std::cout << "--- Render Controls ---" << std::endl;
+	std::cout << "Combined render mode with 1" << std::endl;
+	std::cout << "Base color map render mode with 2" << std::endl;
+	std::cout << "Normal map render mode with 3" << std::endl;
+	std::cout << "Glossiness map render mode with 4" << std::endl;
+	std::cout << "Specular map render mode with 5" << std::endl << std::endl;
 }
 
 Application::~Application()
@@ -705,6 +713,14 @@ VkResult Application::CreateGraphicsPipeline()
 	colorBlending.blendConstants[2] = 0.0f; // Optional
 	colorBlending.blendConstants[3] = 0.0f; // Optional
 
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPushConstantRange.html
+	const VkPushConstantRange pushConstantRange
+	{
+		VK_SHADER_STAGE_FRAGMENT_BIT,
+		0,
+		sizeof(PushConstants)
+	};
+
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineLayoutCreateInfo.html
 	const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo
 	{
@@ -713,8 +729,8 @@ VkResult Application::CreateGraphicsPipeline()
 		0,													// flags
 		1,													// setLayoutCount
 		&m_DescriptorSetLayout,								// pSetLayouts
-		0,													// pushConstantRangeCount
-		nullptr												// pPushConstantRanges
+		1,													// pushConstantRangeCount
+		&pushConstantRange									// pPushConstantRanges
 	};
 
 	if (vkCreatePipelineLayout(m_Device, &pipelineLayoutCreateInfo, nullptr, &m_PipeLineLayout) != VK_SUCCESS) throw std::runtime_error("failed to create pipeline layout!");
@@ -976,6 +992,7 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 	vkCmdBindIndexBuffer(commandBuffer, m_Meshes.at(0)->GetIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipeLineLayout, 0, 1, &m_DescriptorSets.at(m_CurrentFrame), 0, nullptr);
+	vkCmdPushConstants(commandBuffer, m_PipeLineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &m_PushConstants);	
 
 	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Meshes.at(0)->GetIndices().size()), 1, 0, 0, 0);
 
@@ -1161,6 +1178,26 @@ void Application::KeyCallback(GLFWwindow* window, int key, int scancode, int act
 	if (key == GLFW_KEY_R && action == GLFW_RELEASE)	
 	{	
 		m_Meshes.at(0)->SwitchRotate();
+	}
+	else if (key == GLFW_KEY_1 && action == GLFW_RELEASE)
+	{
+		m_PushConstants.RenderType = static_cast<int>(RenderType::Combined);	
+	}
+	else if (key == GLFW_KEY_2 && action == GLFW_RELEASE)
+	{
+		m_PushConstants.RenderType = static_cast<int>(RenderType::BaseColor);
+	}
+	else if (key == GLFW_KEY_3 && action == GLFW_RELEASE)
+	{
+		m_PushConstants.RenderType = static_cast<int>(RenderType::Normal);
+	}
+	else if (key == GLFW_KEY_4 && action == GLFW_RELEASE)
+	{
+		m_PushConstants.RenderType = static_cast<int>(RenderType::Glossiness);
+	}
+	else if (key == GLFW_KEY_5 && action == GLFW_RELEASE)
+	{
+		m_PushConstants.RenderType = static_cast<int>(RenderType::Specular);
 	}
 }
 

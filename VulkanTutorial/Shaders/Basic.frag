@@ -1,5 +1,16 @@
 #version 450
 
+// Define constants for RenderType corresponding to the C++ enum values
+const int RenderTypeCombined = 0;
+const int RenderTypeBaseColor = 1;
+const int RenderTypeNormal = 2;
+const int RenderTypeGlossiness = 3;
+const int RenderTypeSpecular = 4;
+
+layout(push_constant) uniform PushConstants {
+    int RenderType;
+} pushConstants;
+
 layout(binding = 1) uniform sampler g_Sampler;
 layout(binding = 2) uniform texture2D g_BaseColorTexture;
 layout(binding = 3) uniform texture2D g_NormalTexture;
@@ -42,16 +53,33 @@ float Phong(float ks, float exponent, vec3 lightDirection, vec3 viewDirection, v
 
 void main()
 {
-	const vec3 normal = CalculateNormal();
-    const float specular = texture(sampler2D(g_SpecularTexture, g_Sampler), g_InTextureCoordinates).r;
-    const float phongExponent = texture(sampler2D(g_GlossTexture, g_Sampler), g_InTextureCoordinates).r;
-    const float phong = Phong(specular, phongExponent * g_Shininess, g_LightDirection, g_InViewDirection, normal);
-    const vec3 diffuseColor = texture(sampler2D(g_BaseColorTexture, g_Sampler), g_InTextureCoordinates).rgb;
-    const vec3 specularColor = vec3(phong, phong, phong);
+    if(pushConstants.RenderType == RenderTypeCombined)
+    {
+	    const vec3 normal = CalculateNormal();
+        const float specular = texture(sampler2D(g_SpecularTexture, g_Sampler), g_InTextureCoordinates).r;
+        const float phongExponent = texture(sampler2D(g_GlossTexture, g_Sampler), g_InTextureCoordinates).r;
+        const float phong = Phong(specular, phongExponent * g_Shininess, g_LightDirection, g_InViewDirection, normal);
+        const vec3 diffuseColor = texture(sampler2D(g_BaseColorTexture, g_Sampler), g_InTextureCoordinates).rgb;
+        const vec3 specularColor = vec3(phong, phong, phong);
     
-    const vec3 color = diffuseColor + specularColor + g_AmbientColor;
+        const vec3 color = diffuseColor + specularColor + g_AmbientColor;
 
-    g_OutColor  = vec4(color, 1.0f);
-
-    //g_OutColor = texture(sampler2D(g_BaseColorTexture, g_Sampler), g_InTextureCoordinates);
+        g_OutColor  = vec4(color, 1.0f);
+    }
+    else if(pushConstants.RenderType == RenderTypeBaseColor)
+    {
+        g_OutColor = texture(sampler2D(g_BaseColorTexture, g_Sampler), g_InTextureCoordinates);
+    }
+    else if(pushConstants.RenderType == RenderTypeNormal)
+    {
+        g_OutColor = texture(sampler2D(g_NormalTexture, g_Sampler), g_InTextureCoordinates);
+    }
+    else if(pushConstants.RenderType == RenderTypeGlossiness)
+    {
+        g_OutColor = texture(sampler2D(g_GlossTexture, g_Sampler), g_InTextureCoordinates);
+    }
+    else
+    {
+        g_OutColor = texture(sampler2D(g_SpecularTexture, g_Sampler), g_InTextureCoordinates);
+    }
 }

@@ -4,6 +4,8 @@
 #include <vulkan/vulkan.hpp>
 #include <vector>
 
+#include "HelperStructs.h"
+
 class Mesh;
 class Texture;
 struct GLFWwindow;
@@ -113,6 +115,7 @@ private:
     VkImageView m_ColorImageView;
     Camera* m_Camera;
     VkSampleCountFlagBits m_MSAASamples;
+    PushConstants m_PushConstants;                                 
 };
 
 #endif

@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <iostream>
 
 #include "Mesh.h"
 #include "HelperFunctions.h"
@@ -127,6 +128,9 @@ Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyC
 	LoadMesh(path);
 	if (CreateVertexBuffer() != VK_SUCCESS) throw std::runtime_error("Failed to create vertex buffer!");
 	if (CreateIndexBuffer() != VK_SUCCESS) throw std::runtime_error("Failed to create index buffer!");
+
+	std::cout << "--- Mesh Controls ---" << std::endl;
+	std::cout << "Stop rotating mesh with R" << std::endl << std::endl;
 }
 
 Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyCommandPool, VkQueue copyQueue, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) :
@@ -144,6 +148,9 @@ Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, VkCommandPool copyC
 {
 	if (CreateVertexBuffer() != VK_SUCCESS) throw std::runtime_error("Failed to create vertex buffer!");
 	if (CreateIndexBuffer() != VK_SUCCESS) throw std::runtime_error("Failed to create index buffer!");
+
+	std::cout << "--- Mesh Controls ---" << std::endl;
+	std::cout << "Stop rotating mesh with R" << std::endl << std::endl;
 }
 
 Mesh::~Mesh()

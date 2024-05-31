@@ -29,4 +29,18 @@ struct UniformBufferObject final
 	alignas(16) glm::vec3 CameraPosition;
 };
 
+enum class RenderType
+{
+	Combined,
+	BaseColor,
+	Normal,
+	Glossiness,
+	Specular
+};
+
+struct PushConstants
+{
+	int RenderType;
+};
+
 #endif
