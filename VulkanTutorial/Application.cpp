@@ -906,11 +906,14 @@ VkResult Application::CreateCommandPool()
 {
 	QueueFamilyIndices queueFamilyIndices{ FindQueueFamilies(m_PhysicalDevice, m_Surface) };
 
-	VkCommandPoolCreateInfo commandPoolCreateInfo{};
-
-	commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	commandPoolCreateInfo.queueFamilyIndex = queueFamilyIndices.GraphicsFamily.value();
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandPoolCreateInfo.html
+	const VkCommandPoolCreateInfo commandPoolCreateInfo
+	{
+		VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,				// sType
+		nullptr,												// pNext
+		VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,		// flags
+		queueFamilyIndices.GraphicsFamily.value()				// queueFamilyIndex
+	};
 
 	return vkCreateCommandPool(m_Device, &commandPoolCreateInfo, nullptr, &m_CommandPool);
 }
@@ -920,13 +923,16 @@ VkResult Application::CreateCommandBuffers()
 	m_CommandBuffers.resize(g_MaxFramePerFlight);
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkCommandBufferAllocateInfo.html
-	VkCommandBufferAllocateInfo allocationInfo{};
-	allocationInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocationInfo.commandPool = m_CommandPool;
-	allocationInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocationInfo.commandBufferCount = static_cast<uint32_t>(m_CommandBuffers.size());
+	const VkCommandBufferAllocateInfo commandBufferAllocationInfo
+	{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,			// sType
+		nullptr,												// pNext
+		m_CommandPool,											// commandPool
+		VK_COMMAND_BUFFER_LEVEL_PRIMARY,						// level
+		static_cast<uint32_t>(m_CommandBuffers.size())			// commandBufferCount
+	};
 
-	return vkAllocateCommandBuffers(m_Device, &allocationInfo, m_CommandBuffers.data());
+	return vkAllocateCommandBuffers(m_Device, &commandBufferAllocationInfo, m_CommandBuffers.data());	
 }
 
 void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
@@ -1090,13 +1096,20 @@ VkResult Application::CreateSyncObjects()
 	m_InFlight.resize(g_MaxFramePerFlight);
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSemaphoreCreateInfo.html
-	VkSemaphoreCreateInfo semaphoreCreateInfo{};
-	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	const VkSemaphoreCreateInfo semaphoreCreateInfo
+	{
+		VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,		// sType
+		nullptr,										// pNext
+		0												// flags
+	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFenceCreateInfo.html
-	VkFenceCreateInfo fenceCreateInfo{};
-	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+	const VkFenceCreateInfo fenceCreateInfo
+	{
+		VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,			// sType
+		nullptr,										// pNext
+		VK_FENCE_CREATE_SIGNALED_BIT					// flags
+	};
 
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
@@ -1109,7 +1122,6 @@ VkResult Application::CreateSyncObjects()
 		result = vkCreateFence(m_Device, &fenceCreateInfo, nullptr, &m_InFlight[i]);
 		if (result != VK_SUCCESS) return result;
 	}
-
 
 	return result;
 }

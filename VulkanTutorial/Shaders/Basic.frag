@@ -9,7 +9,7 @@ const int RenderTypeSpecular = 4;
 
 layout(push_constant) uniform PushConstants {
     int RenderType;
-} pushConstants;
+} g_PushConstants;
 
 layout(binding = 1) uniform sampler g_Sampler;
 layout(binding = 2) uniform texture2D g_BaseColorTexture;
@@ -53,7 +53,7 @@ float Phong(float ks, float exponent, vec3 lightDirection, vec3 viewDirection, v
 
 void main()
 {
-    if(pushConstants.RenderType == RenderTypeCombined)
+    if(g_PushConstants.RenderType == RenderTypeCombined)
     {
 	    const vec3 normal = CalculateNormal();
         const float specular = texture(sampler2D(g_SpecularTexture, g_Sampler), g_InTextureCoordinates).r;
@@ -66,15 +66,15 @@ void main()
 
         g_OutColor  = vec4(color, 1.0f);
     }
-    else if(pushConstants.RenderType == RenderTypeBaseColor)
+    else if(g_PushConstants.RenderType == RenderTypeBaseColor)
     {
         g_OutColor = texture(sampler2D(g_BaseColorTexture, g_Sampler), g_InTextureCoordinates);
     }
-    else if(pushConstants.RenderType == RenderTypeNormal)
+    else if(g_PushConstants.RenderType == RenderTypeNormal)
     {
         g_OutColor = texture(sampler2D(g_NormalTexture, g_Sampler), g_InTextureCoordinates);
     }
-    else if(pushConstants.RenderType == RenderTypeGlossiness)
+    else if(g_PushConstants.RenderType == RenderTypeGlossiness)
     {
         g_OutColor = texture(sampler2D(g_GlossTexture, g_Sampler), g_InTextureCoordinates);
     }
