@@ -52,7 +52,7 @@ private:
     VkResult CreateCommandPool();
     VkResult CreateCommandBuffers();
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-    void UpdateUniformBuffer(uint32_t currentImage, Mesh* mesh);
+    void UpdateUniformBuffers(uint32_t currentImage);
     void DrawFrame();
     VkResult CreateSyncObjects();
     void RecreateSwapChain();
@@ -63,6 +63,7 @@ private:
     void CreateTextureSampler();
     void CreateDepthResources();
     void CreateColorResources();
+    void InitializeTextures();
 
     int m_Width;
     int m_Height;
@@ -97,15 +98,15 @@ private:
     uint32_t m_CurrentFrame;
     bool m_FrameBufferResized;
     std::vector<Mesh*> m_Meshes;
-    std::vector<VkBuffer> m_UniformBuffers;
-    std::vector<VkDeviceMemory> m_UniformBufferMemories;
-    std::vector<void*> m_UniformBufferMaps;
+    std::vector< std::vector<VkBuffer>> m_UniformBuffers;
+    std::vector< std::vector<VkDeviceMemory>> m_UniformBufferMemories;
+    std::vector< std::vector<void*>> m_UniformBufferMaps;
     VkDescriptorPool m_DescriptorPool;
-    std::vector<VkDescriptorSet> m_DescriptorSets;
-    Texture* m_BaseColorTexture;
-    Texture* m_NormalTexture;
-    Texture* m_GlossTexture;
-    Texture* m_SpecularTexture;
+    std::vector< std::vector<VkDescriptorSet>> m_DescriptorSets;
+    std::vector <Texture*> m_BaseColorTextures;
+    std::vector <Texture*> m_NormalTextures;
+    std::vector <Texture*> m_GlossTextures;
+    std::vector <Texture*> m_SpecularTextures;
     VkSampler m_TextureSampler;
     VkImage m_DepthImage;
     VkDeviceMemory m_DepthMemory;

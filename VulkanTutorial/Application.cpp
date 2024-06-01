@@ -9,6 +9,7 @@
 #endif
 
 const int g_MaxFramePerFlight{ 2 };
+const int g_NumberOfMeshes{ 2 };
 
 #include <GLFW/glfw3.h>
 #include <stdexcept>
@@ -69,10 +70,10 @@ Application::Application(int width, int height) :
 	m_UniformBufferMaps{},
 	m_DescriptorPool{},
 	m_DescriptorSets{},
-	m_BaseColorTexture{},
-	m_NormalTexture{},
-	m_GlossTexture{},
-	m_SpecularTexture{},
+	m_BaseColorTextures{},
+	m_NormalTextures{},
+	m_GlossTextures{},
+	m_SpecularTextures{},
 	m_TextureSampler{},
 	m_DepthImage{},
 	m_DepthMemory{},
@@ -91,9 +92,6 @@ Application::Application(int width, int height) :
 	m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f, 2.5f };
 	m_Camera->SetStartPosition(glm::vec3{ 2.83f, 2.09f, 1.41f }, 0.63f, -0.39f);
 
-	//m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 1000.0f, 15.0f };
-	//m_Camera->SetStartPosition(glm::vec3{ 34.68f, 29.46f, 10.52f }, 0.73f, -0.29f);
-
 	std::cout << "--- Render Controls ---" << std::endl;
 	std::cout << "Combined render mode with 1" << std::endl;
 	std::cout << "Base color map render mode with 2" << std::endl;
@@ -106,18 +104,24 @@ Application::~Application()
 {
 	delete m_Camera;
 	vkDestroySampler(m_Device, m_TextureSampler, nullptr);
-	delete m_BaseColorTexture;
-	delete m_NormalTexture;
-	delete m_GlossTexture;
-	delete m_SpecularTexture;
+	for (int i{}; i < g_NumberOfMeshes; ++i)
+	{
+		delete m_BaseColorTextures.at(i);
+		delete m_NormalTextures.at(i);
+		delete m_GlossTextures.at(i);
+		delete m_SpecularTextures.at(i);
+	}
 	for (auto mesh : m_Meshes)
 	{
 		delete mesh;
 	}
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
-		vkDestroyBuffer(m_Device, m_UniformBuffers.at(i), nullptr);
-		vkFreeMemory(m_Device, m_UniformBufferMemories.at(i), nullptr);
+		for (size_t j{}; j < m_Meshes.size(); ++j)
+		{
+			vkDestroyBuffer(m_Device, m_UniformBuffers.at(i).at(j), nullptr);	
+			vkFreeMemory(m_Device, m_UniformBufferMemories.at(i).at(j), nullptr);	
+		}
 	}
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
@@ -156,7 +160,7 @@ void Application::Run()
 
 		glfwPollEvents();
 		m_Camera->Update(m_Window, time);
-		m_Meshes.at(0)->Update(time);
+		for (int i{}; i < g_NumberOfMeshes; ++i) m_Meshes.at(i)->Update(time);
 		DrawFrame();
 
 		lastTime = currentTime;
@@ -167,11 +171,27 @@ void Application::Run()
 
 void Application::InitializeMeshes()
 {
-	//m_Meshes.push_back(new Mesh{m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/Scarlett_LP_rotated_knobs.obj"});
-
+	// Vehicle
 	m_Meshes.push_back(new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/vehicle.obj" });
-	m_Meshes.at(0)->SetModelMatrix(glm::scale(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward), glm::vec3{ 0.1f, 0.1f, 0.1f}));
+	m_Meshes.at(0)->SetModelMatrix(glm::scale(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward), glm::vec3{ 0.1f, 0.1f, 0.1f }));
 
+	// Mixer
+	m_Meshes.push_back(new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/Scarlett_LP_rotated_knobs.obj" });
+	m_Meshes.at(1)->SetModelMatrix
+	(
+		glm::translate
+		(
+			glm::rotate
+			(
+				glm::scale
+				(
+					glm::mat4{ 1.0f }, glm::vec3{ 0.07f, 0.07f, 0.07f }
+				), 
+				glm::radians(-90.0f), g_WorldForward
+			),
+			glm::vec3{ 0.0f, 20.0, 0.0f }
+		)
+	);
 }
 
 void Application::InitializeWindow()
@@ -221,10 +241,7 @@ void Application::InitializeVulkan()
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
-	m_BaseColorTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_diffuse.png", VK_FORMAT_R8G8B8A8_SRGB };
-	m_NormalTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_normal.png", VK_FORMAT_R8G8B8A8_UNORM };	
-	m_GlossTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_gloss.png", VK_FORMAT_R8G8B8A8_UNORM };
-	m_SpecularTexture = new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_specular.png", VK_FORMAT_R8G8B8A8_UNORM };
+	InitializeTextures();	
 	CreateTextureSampler();
 	if (CreateUniformBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create uniform buffers!");
 	if (CreateDescriptorPool() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor pool!");
@@ -992,15 +1009,20 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	scissor.offset = { 0, 0 };
 	scissor.extent = m_ImageExtend;
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-	const VkBuffer vertexBuffers[]{ m_Meshes.at(0)->GetVertexBuffer() };
-	const VkDeviceSize offsets[]{ 0 };
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-	vkCmdBindIndexBuffer(commandBuffer, m_Meshes.at(0)->GetIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipeLineLayout, 0, 1, &m_DescriptorSets.at(m_CurrentFrame), 0, nullptr);
+	
 	vkCmdPushConstants(commandBuffer, m_PipeLineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &m_PushConstants);	
 
-	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Meshes.at(0)->GetIndices().size()), 1, 0, 0, 0);
+	for (int i{}; i < g_NumberOfMeshes; ++i)
+	{
+		const VkBuffer vertexBuffers[]{ m_Meshes.at(i)->GetVertexBuffer()};
+		const VkDeviceSize offsets[]{ 0 };
+
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);	
+		vkCmdBindIndexBuffer(commandBuffer, m_Meshes.at(i)->GetIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);	
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipeLineLayout, 0, 1, &m_DescriptorSets.at(m_CurrentFrame).at(i), 0, nullptr);
+			
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Meshes.at(i)->GetIndices().size()), 1, 0, 0, 0);	
+	}
 
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -1010,18 +1032,21 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	}
 }
 
-void Application::UpdateUniformBuffer(uint32_t currentImage, Mesh* mesh)
+void Application::UpdateUniformBuffers(uint32_t currentImage)
 {
-	UniformBufferObject ubo
+	for (size_t i{}; i < m_Meshes.size(); ++i)	
 	{
-		mesh->GetModelMatrix(),
-		m_Camera->GetViewMatrx(),
-		m_Camera->GetProjectionMatrix(),
-		m_Camera->GetPosition()
-	};
-	ubo.ProjectionMatrix[1][1] *= -1;
+		UniformBufferObject ubo
+		{
+			m_Meshes.at(i)->GetModelMatrix(),
+			m_Camera->GetViewMatrx(),
+			m_Camera->GetProjectionMatrix(),
+			m_Camera->GetPosition()	
+		};
+		ubo.ProjectionMatrix[1][1] *= -1;	
 
-	memcpy(m_UniformBufferMaps[currentImage], &ubo, sizeof(UniformBufferObject));
+		memcpy(m_UniformBufferMaps.at(currentImage).at(i), &ubo, sizeof(UniformBufferObject));	
+	}
 }
 
 void Application::DrawFrame()
@@ -1040,7 +1065,7 @@ void Application::DrawFrame()
 		throw std::runtime_error("failed to acquire the swap chain image");
 	}
 
-	UpdateUniformBuffer(m_CurrentFrame, m_Meshes.at(0));
+	UpdateUniformBuffers(m_CurrentFrame);	
 
 	vkResetFences(m_Device, 1, &m_InFlight[m_CurrentFrame]);
 
@@ -1189,7 +1214,7 @@ void Application::KeyCallback(GLFWwindow* window, int key, int scancode, int act
 
 	if (key == GLFW_KEY_R && action == GLFW_RELEASE)	
 	{	
-		m_Meshes.at(0)->SwitchRotate();
+		for (int i{}; i < g_NumberOfMeshes; ++i)  m_Meshes.at(i)->SwitchRotate();
 	}
 	else if (key == GLFW_KEY_1 && action == GLFW_RELEASE)
 	{
@@ -1223,21 +1248,35 @@ VkResult Application::CreateUniformBuffers()
 	m_UniformBufferMemories.resize(g_MaxFramePerFlight);
 	m_UniformBufferMaps.resize(g_MaxFramePerFlight);
 
-	for (size_t i{ 0 }; i < g_MaxFramePerFlight; ++i)
+	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
-		CreateBuffer
-		(
-			m_PhysicalDevice,
-			m_Device,
-			bufferSize,
-			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			m_UniformBuffers.at(i),
-			m_UniformBufferMemories.at(i)
-		);
+		m_UniformBuffers.emplace_back();
+		m_UniformBufferMemories.emplace_back();	
+		m_UniformBufferMaps.emplace_back();	
 
-		result = vkMapMemory(m_Device, m_UniformBufferMemories.at(i), 0, bufferSize, 0, &m_UniformBufferMaps.at(i));
-		if (result != VK_SUCCESS) return result;
+		m_UniformBuffers.at(i).resize(static_cast<size_t>(g_NumberOfMeshes));
+		m_UniformBufferMemories.at(i).resize(static_cast<size_t>(g_NumberOfMeshes));	
+		m_UniformBufferMaps.at(i).resize(static_cast<size_t>(g_NumberOfMeshes));	
+	}
+
+	for (int i{ 0 }; i < g_MaxFramePerFlight; ++i)
+	{
+		for (int j{}; j < g_NumberOfMeshes; ++j)
+		{
+			CreateBuffer
+			(
+				m_PhysicalDevice,
+				m_Device,
+				bufferSize,
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+				m_UniformBuffers.at(i).at(j),	
+				m_UniformBufferMemories.at(i).at(j)	
+			);
+
+			result = vkMapMemory(m_Device, m_UniformBufferMemories.at(i).at(j), 0, bufferSize, 0, &m_UniformBufferMaps.at(i).at(j));	
+			if (result != VK_SUCCESS) return result;
+		}
 	}
 
 	return result;
@@ -1250,30 +1289,30 @@ VkResult Application::CreateDescriptorPool()
 	{
 		VkDescriptorPoolSize
 		{
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// type
-			static_cast<uint32_t>(g_MaxFramePerFlight)		// descriptorCount
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,									// type
+			static_cast<uint32_t>(g_MaxFramePerFlight * g_NumberOfMeshes)		// descriptorCount
 		},
 		VkDescriptorPoolSize
 		{
 			VK_DESCRIPTOR_TYPE_SAMPLER,	
-			static_cast<uint32_t>(g_MaxFramePerFlight)
+			static_cast<uint32_t>(g_MaxFramePerFlight * g_NumberOfMeshes)
 		},
 		VkDescriptorPoolSize	
 		{
 			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-			static_cast<uint32_t>(g_MaxFramePerFlight) * 4
+			static_cast<uint32_t>(g_MaxFramePerFlight * g_NumberOfMeshes) * 4
 		}
 	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorPoolCreateInfo.html
 	const VkDescriptorPoolCreateInfo descriptorPoolCreateInfo
 	{
-		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,					// sType
-		nullptr,														// pNext
-		0,																// flags
-		static_cast<uint32_t>(g_MaxFramePerFlight),						// maxSets
-		static_cast<uint32_t>(descriptorPoolSizes.size()),				// poolSizeCount
-		descriptorPoolSizes.data()										// pPoolSizes
+		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,								// sType
+		nullptr,																	// pNext
+		0,																			// flags
+		static_cast<uint32_t>(g_MaxFramePerFlight * g_NumberOfMeshes),				// maxSets
+		static_cast<uint32_t>(descriptorPoolSizes.size()),							// poolSizeCount
+		descriptorPoolSizes.data()													// pPoolSizes
 	};
 
 	return vkCreateDescriptorPool(m_Device, &descriptorPoolCreateInfo, nullptr, &m_DescriptorPool);
@@ -1281,8 +1320,18 @@ VkResult Application::CreateDescriptorPool()
 
 VkResult Application::CreateDescriptorSets()
 {
+	VkResult result{ VK_SUCCESS };		
+
 	m_DescriptorSets.resize(g_MaxFramePerFlight);
-	std::vector<VkDescriptorSetLayout> descriptorSetlayouts{ g_MaxFramePerFlight, m_DescriptorSetLayout };
+
+	std::vector<VkDescriptorSetLayout> descriptorSetlayouts{ g_NumberOfMeshes, m_DescriptorSetLayout };
+
+	for (int i{}; i < g_MaxFramePerFlight; ++i)
+	{
+		m_DescriptorSets.emplace_back();	
+
+		m_DescriptorSets.at(i).resize(static_cast<size_t>(g_NumberOfMeshes));	
+	}
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetAllocateInfo.html
 	const VkDescriptorSetAllocateInfo descriptorSetAllocateInfo
@@ -1290,149 +1339,155 @@ VkResult Application::CreateDescriptorSets()
 		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,			// sType
 		nullptr,												// pNext
 		m_DescriptorPool,										// descriptorPool
-		static_cast<uint32_t>(g_MaxFramePerFlight),				// descriptorSetCount
+		static_cast<uint32_t>(g_NumberOfMeshes),				// descriptorSetCount
 		descriptorSetlayouts.data()								// pSetLayouts
 	};
 
-	VkResult result{ vkAllocateDescriptorSets(m_Device, &descriptorSetAllocateInfo, m_DescriptorSets.data()) };
-	if (result != VK_SUCCESS) return result;
-
-	for (size_t i{ 0 }; i < g_MaxFramePerFlight; i++)
+	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
-		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorBufferInfo.html
-		const VkDescriptorBufferInfo descriptorBufferInfo
-		{
-			m_UniformBuffers.at(i),				// buffer
-			0,									// offset
-			sizeof(UniformBufferObject)			// range
-		};
+		result = vkAllocateDescriptorSets(m_Device, &descriptorSetAllocateInfo, m_DescriptorSets.at(i).data());
+		if (result != VK_SUCCESS) return result;
+	}
 
-		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorImageInfo.html
-		const VkDescriptorImageInfo descriptorSamplerInfo
+	for (int i{ 0 }; i < g_MaxFramePerFlight; i++)
+	{
+		for (int j{}; j < g_NumberOfMeshes; j++)
 		{
-			m_TextureSampler,								// sampler
-			VK_NULL_HANDLE,									// imageView
-			VK_IMAGE_LAYOUT_UNDEFINED						// imageLayout
-		};
-
-		const VkDescriptorImageInfo descriptorBaseColorInfo
-		{
-			VK_NULL_HANDLE,									// sampler
-			m_BaseColorTexture->GetImageView(),				// imageView
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
-		};
-
-		const VkDescriptorImageInfo descriptorNormalInfo
-		{
-			VK_NULL_HANDLE,									// sampler	
-			m_NormalTexture->GetImageView(),				// imageView
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
-		};
-
-		const VkDescriptorImageInfo descriptorGlossInfo
-		{
-			VK_NULL_HANDLE,									// sampler	
-			m_GlossTexture->GetImageView(),					// imageView
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
-		};
-
-		const VkDescriptorImageInfo descriptorSpecularInfo
-		{
-			VK_NULL_HANDLE,									// sampler
-			m_SpecularTexture->GetImageView(),				// imageView
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
-		};
-
-		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkWriteDescriptorSet.html
-		std::array<VkWriteDescriptorSet, 6> writeDescriptorSets
-		{
-			// Uniform buffer object
-			VkWriteDescriptorSet
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorBufferInfo.html
+			const VkDescriptorBufferInfo descriptorBufferInfo
 			{
-				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,			// sType
-				nullptr,										// pNext
-				m_DescriptorSets.at(i),							// dstSet
-				0,												// dstBinding
-				0,												// dstArrayElement
-				1,												// descriptorCount
-				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// descriptorType
-				nullptr,										// pImageInfo
-				&descriptorBufferInfo,							// pBufferInfo
-				nullptr											// pTexelBufferView
-			},
-			// sampler
-			VkWriteDescriptorSet
-			{
-				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,	
-				nullptr,
-				m_DescriptorSets.at(i),	
-				1,
-				0,
-				1,
-				VK_DESCRIPTOR_TYPE_SAMPLER,	
-				&descriptorSamplerInfo,		
-				nullptr,
-				nullptr
-			},
-			// base color texture
-			VkWriteDescriptorSet
-			{
-				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				nullptr,
-				m_DescriptorSets.at(i),
-				2,
-				0,
-				1,
-				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-				&descriptorBaseColorInfo,
-				nullptr,
-				nullptr
-			},
-			// normal texture
-			VkWriteDescriptorSet
-			{
-				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				nullptr,
-				m_DescriptorSets.at(i),
-				3,
-				0,
-				1,
-				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-				&descriptorNormalInfo,
-				nullptr,
-				nullptr
-			},
-			// Gloss texture
-			VkWriteDescriptorSet
-			{
-				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				nullptr,
-				m_DescriptorSets.at(i),
-				4,
-				0,
-				1,
-				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-				&descriptorGlossInfo,
-				nullptr,
-				nullptr
-			},
-			// Specular texture
-			VkWriteDescriptorSet
-			{
-				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				nullptr,
-				m_DescriptorSets.at(i),
-				5,
-				0,
-				1,
-				VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,	
-				&descriptorSpecularInfo,
-				nullptr,
-				nullptr
-			}
-		};
+				m_UniformBuffers.at(i).at(j),		// buffer
+				0,									// offset
+				sizeof(UniformBufferObject)			// range
+			};
 
-		vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorImageInfo.html
+			const VkDescriptorImageInfo descriptorSamplerInfo
+			{
+				m_TextureSampler,								// sampler
+				VK_NULL_HANDLE,									// imageView
+				VK_IMAGE_LAYOUT_UNDEFINED						// imageLayout
+			};
+
+			const VkDescriptorImageInfo descriptorBaseColorInfo
+			{
+				VK_NULL_HANDLE,									
+				m_BaseColorTextures.at(j)->GetImageView(),	
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		
+			};
+
+			const VkDescriptorImageInfo descriptorNormalInfo
+			{
+				VK_NULL_HANDLE,									
+				m_NormalTextures.at(j)->GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		
+			};
+
+			const VkDescriptorImageInfo descriptorGlossInfo
+			{
+				VK_NULL_HANDLE,									
+				m_GlossTextures.at(j)->GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL	
+			};
+
+			const VkDescriptorImageInfo descriptorSpecularInfo
+			{
+				VK_NULL_HANDLE,									
+				m_SpecularTextures.at(j)->GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		
+			};
+
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkWriteDescriptorSet.html
+			std::array<VkWriteDescriptorSet, 6> writeDescriptorSets
+			{
+				// Uniform buffer object
+				VkWriteDescriptorSet
+				{
+					VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,			// sType
+					nullptr,										// pNext
+					m_DescriptorSets.at(i).at(j),					// dstSet
+					0,												// dstBinding
+					0,												// dstArrayElement
+					1,												// descriptorCount
+					VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// descriptorType
+					nullptr,										// pImageInfo
+					&descriptorBufferInfo,							// pBufferInfo
+					nullptr											// pTexelBufferView
+				},
+				// sampler
+				VkWriteDescriptorSet
+				{
+					VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					nullptr,
+					m_DescriptorSets.at(i).at(j),
+					1,
+					0,
+					1,
+					VK_DESCRIPTOR_TYPE_SAMPLER,
+					&descriptorSamplerInfo,
+					nullptr,
+					nullptr
+				},
+				// base color texture
+				VkWriteDescriptorSet
+				{
+					VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					nullptr,
+					m_DescriptorSets.at(i).at(j),
+					2,
+					0,
+					1,
+					VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+					&descriptorBaseColorInfo,
+					nullptr,
+					nullptr
+				},
+				// normal texture
+				VkWriteDescriptorSet
+				{
+					VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					nullptr,
+					m_DescriptorSets.at(i).at(j),
+					3,
+					0,
+					1,
+					VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+					&descriptorNormalInfo,
+					nullptr,
+					nullptr
+				},
+				// Gloss texture
+				VkWriteDescriptorSet
+				{
+					VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					nullptr,
+					m_DescriptorSets.at(i).at(j),
+					4,
+					0,
+					1,
+					VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+					&descriptorGlossInfo,
+					nullptr,
+					nullptr
+				},
+				// Specular texture
+				VkWriteDescriptorSet
+				{
+					VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+					nullptr,
+					m_DescriptorSets.at(i).at(j),	
+					5,
+					0,
+					1,
+					VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+					&descriptorSpecularInfo,
+					nullptr,
+					nullptr
+				}
+			};
+
+			vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+		}
 	}
 
 	return result;
@@ -1514,4 +1569,17 @@ void Application::CreateColorResources()
 	);
 
 	m_ColorImageView = CreateImageView(m_Device, m_ColorImage, m_ImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+}
+
+void Application::InitializeTextures()
+{
+	m_BaseColorTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_diffuse.png", VK_FORMAT_R8G8B8A8_SRGB });
+	m_NormalTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_normal.png", VK_FORMAT_R8G8B8A8_UNORM });
+	m_GlossTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_gloss.png", VK_FORMAT_R8G8B8A8_UNORM });
+	m_SpecularTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_specular.png", VK_FORMAT_R8G8B8A8_UNORM });
+
+	m_BaseColorTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_diffuse.png", VK_FORMAT_R8G8B8A8_SRGB });
+	m_NormalTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_normal.png", VK_FORMAT_R8G8B8A8_UNORM });
+	m_GlossTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_roughness.png", VK_FORMAT_R8G8B8A8_UNORM });
+	m_SpecularTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_metalness.png", VK_FORMAT_R8G8B8A8_UNORM });
 }
