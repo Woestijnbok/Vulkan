@@ -11,11 +11,10 @@ layout(push_constant) uniform PushConstants {
     int RenderType;
 } g_PushConstants;
 
-layout(binding = 1) uniform sampler g_Sampler;
-layout(binding = 2) uniform texture2D g_BaseColorTexture;
-layout(binding = 3) uniform texture2D g_NormalTexture;
-layout(binding = 4) uniform texture2D g_GlossTexture;
-layout(binding = 5) uniform texture2D g_SpecularTexture;
+layout(set = 1, binding = 0) uniform sampler2D g_BaseColorTexture;      
+layout(set = 1, binding = 1) uniform sampler2D g_NormalTexture;         
+layout(set = 1, binding = 2) uniform sampler2D g_GlossTexture;      
+layout(set = 1, binding = 3) uniform sampler2D g_SpecularTexture;               
 
 layout(location = 0) in vec2 g_InTextureCoordinates;
 layout(location = 1) in vec3 g_InViewDirection;
@@ -36,7 +35,7 @@ vec3 CalculateNormal()
     
     const vec3 biNormal = normalize(cross(g_InNormal, g_InTangent));
     const mat3 tangentSpaceMatrix = mat3(g_InTangent, biNormal, g_InNormal);
-    const vec3 SampledNormal = texture(sampler2D(g_NormalTexture, g_Sampler), g_InTextureCoordinates).rgb;
+    const vec3 SampledNormal = texture(g_NormalTexture, g_InTextureCoordinates).rgb;    
     normal = normalize(SampledNormal * tangentSpaceMatrix);
    
     return normal;
@@ -56,10 +55,10 @@ void main()
     if(g_PushConstants.RenderType == RenderTypeCombined)
     {
 	    const vec3 normal = CalculateNormal();
-        const float specular = texture(sampler2D(g_SpecularTexture, g_Sampler), g_InTextureCoordinates).r;
-        const float phongExponent = texture(sampler2D(g_GlossTexture, g_Sampler), g_InTextureCoordinates).r;
+        const float specular = texture(g_SpecularTexture, g_InTextureCoordinates).r;
+        const float phongExponent = texture(g_GlossTexture, g_InTextureCoordinates).r;
         const float phong = Phong(specular, phongExponent * g_Shininess, g_LightDirection, g_InViewDirection, normal);
-        const vec3 diffuseColor = texture(sampler2D(g_BaseColorTexture, g_Sampler), g_InTextureCoordinates).rgb;
+        const vec3 diffuseColor = texture(g_BaseColorTexture, g_InTextureCoordinates).rgb;
         const vec3 specularColor = vec3(phong, phong, phong);
     
         const vec3 color = diffuseColor + specularColor + g_AmbientColor;
@@ -68,18 +67,18 @@ void main()
     }
     else if(g_PushConstants.RenderType == RenderTypeBaseColor)
     {
-        g_OutColor = texture(sampler2D(g_BaseColorTexture, g_Sampler), g_InTextureCoordinates);
+        g_OutColor = texture(g_BaseColorTexture, g_InTextureCoordinates);
     }
     else if(g_PushConstants.RenderType == RenderTypeNormal)
     {
-        g_OutColor = texture(sampler2D(g_NormalTexture, g_Sampler), g_InTextureCoordinates);
+        g_OutColor = texture(g_NormalTexture, g_InTextureCoordinates);
     }
     else if(g_PushConstants.RenderType == RenderTypeGlossiness)
     {
-        g_OutColor = texture(sampler2D(g_GlossTexture, g_Sampler), g_InTextureCoordinates);
+        g_OutColor = texture(g_GlossTexture, g_InTextureCoordinates);
     }
     else
     {
-        g_OutColor = texture(sampler2D(g_SpecularTexture, g_Sampler), g_InTextureCoordinates);
+        g_OutColor = texture(g_SpecularTexture, g_InTextureCoordinates);
     }
 }

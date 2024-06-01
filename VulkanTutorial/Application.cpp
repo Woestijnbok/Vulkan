@@ -3,9 +3,9 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #ifdef NDEBUG
-	const bool g_EnableValidationlayers{ false };
+const bool g_EnableValidationlayers{ false };
 #else
-	const bool g_EnableValidationlayers{ true };
+const bool g_EnableValidationlayers{ true };
 #endif
 
 const int g_MaxFramePerFlight{ 2 };
@@ -53,7 +53,6 @@ Application::Application(int width, int height) :
 	m_VertexShader{},
 	m_FragmentShader{},
 	m_RenderPass{},
-	m_DescriptorSetLayout{},
 	m_PipeLineLayout{},
 	m_PipeLine{},
 	m_SwapChainFrameBuffers{},
@@ -68,8 +67,11 @@ Application::Application(int width, int height) :
 	m_UniformBuffers{},
 	m_UniformBufferMemories{},
 	m_UniformBufferMaps{},
+	m_TexturesDescriptorSetLayout{},
+	m_TransformsDescriptorSetLayout{},
 	m_DescriptorPool{},
-	m_DescriptorSets{},
+	m_TexturesDescriptorSets{},
+	m_TransformsDescriptorSets{},
 	m_BaseColorTextures{},
 	m_NormalTextures{},
 	m_GlossTextures{},
@@ -83,7 +85,7 @@ Application::Application(int width, int height) :
 	m_ColorImageView{},
 	m_Camera{},
 	m_MSAASamples{ VK_SAMPLE_COUNT_1_BIT },
-	m_PushConstants{ 0 }	
+	m_PushConstants{ 0 }
 {
 	InitializeWindow();
 	InitializeVulkan();
@@ -119,8 +121,8 @@ Application::~Application()
 	{
 		for (size_t j{}; j < m_Meshes.size(); ++j)
 		{
-			vkDestroyBuffer(m_Device, m_UniformBuffers.at(i).at(j), nullptr);	
-			vkFreeMemory(m_Device, m_UniformBufferMemories.at(i).at(j), nullptr);	
+			vkDestroyBuffer(m_Device, m_UniformBuffers.at(i).at(j), nullptr);
+			vkFreeMemory(m_Device, m_UniformBufferMemories.at(i).at(j), nullptr);
 		}
 	}
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
@@ -134,7 +136,8 @@ Application::~Application()
 	vkDestroyPipeline(m_Device, m_PipeLine, nullptr);
 	vkDestroyPipelineLayout(m_Device, m_PipeLineLayout, nullptr);
 	vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
-	vkDestroyDescriptorSetLayout(m_Device, m_DescriptorSetLayout, nullptr);
+	vkDestroyDescriptorSetLayout(m_Device, m_TexturesDescriptorSetLayout, nullptr);
+	vkDestroyDescriptorSetLayout(m_Device, m_TransformsDescriptorSetLayout, nullptr);
 	vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
 	vkDestroyShaderModule(m_Device, m_VertexShader, nullptr);
 	vkDestroyShaderModule(m_Device, m_FragmentShader, nullptr);
@@ -186,7 +189,7 @@ void Application::InitializeMeshes()
 				glm::scale
 				(
 					glm::mat4{ 1.0f }, glm::vec3{ 0.07f, 0.07f, 0.07f }
-				), 
+				),
 				glm::radians(-90.0f), g_WorldForward
 			),
 			glm::vec3{ 0.0f, 20.0, 0.0f }
@@ -233,7 +236,8 @@ void Application::InitializeVulkan()
 	RetrieveSwapChainImages();
 	if (CreateSwapChainImageViews() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain image views!");
 	if (CreateRenderPass() != VK_SUCCESS) throw std::runtime_error("failed to create render pass!");
-	if (CreateDescriptorSetLayout() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor set layout!");
+	if (CreateTexturesDescriptorSetLayout() != VK_SUCCESS) throw std::runtime_error("failed to create textures descriptor set layout!");
+	if (CreateTransformsDescriptorSetLayout() != VK_SUCCESS) throw std::runtime_error("failed to create transforms descriptor set layout!");
 	if (CreateGraphicsPipeline() != VK_SUCCESS) throw std::runtime_error("failed to create grahpics pipeline!");
 	if (CreateCommandPool() != VK_SUCCESS) throw std::runtime_error("failed to create command pool!");
 	CreateColorResources();
@@ -241,11 +245,12 @@ void Application::InitializeVulkan()
 	if (CreateSwapChainFrameBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create swap chain frame buffers!");
 	if (CreateCommandBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create command buffer!");
 	if (CreateSyncObjects() != VK_SUCCESS) throw std::runtime_error("failed to create sync objects!");
-	InitializeTextures();	
+	InitializeTextures();
 	CreateTextureSampler();
 	if (CreateUniformBuffers() != VK_SUCCESS) throw std::runtime_error("failed to create uniform buffers!");
 	if (CreateDescriptorPool() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor pool!");
-	if (CreateDescriptorSets() != VK_SUCCESS) throw std::runtime_error("failed to create descriptor sets!");
+	if (CreateTexturesDescriptorSets() != VK_SUCCESS) throw std::runtime_error("failed to create textures descriptor sets!");
+	if (CreateTransformsDescriptorSets() != VK_SUCCESS) throw std::runtime_error("failed to create transforms descriptor sets!");
 }
 
 bool Application::ExtensionsPresent()
@@ -533,80 +538,6 @@ VkResult Application::CreateSwapChainImageViews()
 	return VK_SUCCESS;
 }
 
-VkResult Application::CreateDescriptorSetLayout()
-{
-	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutBinding.html
-	const std::array<VkDescriptorSetLayoutBinding, 6> descriptorSetLayoutBindings
-	{
-		// Uniform buffer object
-		VkDescriptorSetLayoutBinding
-		{
-			0,											// binding
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,			// descriptorType
-			1,											// descriptorCount
-			VK_SHADER_STAGE_VERTEX_BIT,					// stageFlags
-			nullptr										// pImmutableSamplers
-		},
-		// sampler
-		VkDescriptorSetLayoutBinding
-		{
-			1,
-			VK_DESCRIPTOR_TYPE_SAMPLER,	
-			1,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			nullptr
-		},
-		// base color texture
-		VkDescriptorSetLayoutBinding
-		{
-			2,
-			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,	
-			1,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			nullptr
-		},
-		// normal texture
-		VkDescriptorSetLayoutBinding
-		{
-			3,
-			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-			1,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			nullptr
-		},
-		// Gloss texture
-		VkDescriptorSetLayoutBinding
-		{
-			4,
-			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-			1,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			nullptr
-		},
-		// Specular texture
-		VkDescriptorSetLayoutBinding
-		{
-			5,
-			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-			1,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			nullptr
-		}
-	};
-
-	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutCreateInfo.html
-	const VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo
-	{
-		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,		// sType
-		nullptr,													// pNext
-		0,															// flags
-		uint32_t(descriptorSetLayoutBindings.size()),				// bindingCount
-		descriptorSetLayoutBindings.data()							// pBindings
-	};
-
-	return vkCreateDescriptorSetLayout(m_Device, &descriptorSetLayoutCreateInfo, nullptr, &m_DescriptorSetLayout);
-}
-
 VkResult Application::CreateGraphicsPipeline()
 {
 
@@ -738,16 +669,18 @@ VkResult Application::CreateGraphicsPipeline()
 		sizeof(PushConstants)
 	};
 
+	const std::array<VkDescriptorSetLayout, 2> descriptorSetLayouts{ m_TransformsDescriptorSetLayout, m_TexturesDescriptorSetLayout };	
+
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineLayoutCreateInfo.html
 	const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo
 	{
-		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,		// sType
-		nullptr,											// pNext
-		0,													// flags
-		1,													// setLayoutCount
-		&m_DescriptorSetLayout,								// pSetLayouts
-		1,													// pushConstantRangeCount
-		&pushConstantRange									// pPushConstantRanges
+		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,				// sType
+		nullptr,													// pNext
+		0,															// flags
+		static_cast<uint32_t>(descriptorSetLayouts.size()),			// setLayoutCount
+		descriptorSetLayouts.data(),								// pSetLayouts
+		1,															// pushConstantRangeCount
+		&pushConstantRange											// pPushConstantRanges
 	};
 
 	if (vkCreatePipelineLayout(m_Device, &pipelineLayoutCreateInfo, nullptr, &m_PipeLineLayout) != VK_SUCCESS) throw std::runtime_error("failed to create pipeline layout!");
@@ -813,15 +746,15 @@ VkResult Application::CreateRenderPass()
 		// color resolve attachment
 		VkAttachmentDescription
 		{
-			0,	
-			m_ImageFormat,	
-			VK_SAMPLE_COUNT_1_BIT,	
-			VK_ATTACHMENT_LOAD_OP_DONT_CARE,	
-			VK_ATTACHMENT_STORE_OP_STORE,			
-			VK_ATTACHMENT_LOAD_OP_DONT_CARE,	
-			VK_ATTACHMENT_STORE_OP_DONT_CARE,	
+			0,
+			m_ImageFormat,
+			VK_SAMPLE_COUNT_1_BIT,
+			VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			VK_ATTACHMENT_STORE_OP_STORE,
+			VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			VK_ATTACHMENT_STORE_OP_DONT_CARE,
 			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR	
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
 		}
 	};
 
@@ -833,15 +766,15 @@ VkResult Application::CreateRenderPass()
 	};
 
 	const VkAttachmentReference depthAttachmentReference
-	{														
-		1,														
-		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL		
+	{
+		1,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 	};
 
 	const VkAttachmentReference resolveAttachmentReference
 	{
 		2,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL		
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 	};
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription.html
@@ -949,7 +882,7 @@ VkResult Application::CreateCommandBuffers()
 		static_cast<uint32_t>(m_CommandBuffers.size())			// commandBufferCount
 	};
 
-	return vkAllocateCommandBuffers(m_Device, &commandBufferAllocationInfo, m_CommandBuffers.data());	
+	return vkAllocateCommandBuffers(m_Device, &commandBufferAllocationInfo, m_CommandBuffers.data());
 }
 
 void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
@@ -1009,19 +942,21 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 	scissor.offset = { 0, 0 };
 	scissor.extent = m_ImageExtend;
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-	
-	vkCmdPushConstants(commandBuffer, m_PipeLineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &m_PushConstants);	
+
+	vkCmdPushConstants(commandBuffer, m_PipeLineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &m_PushConstants);
 
 	for (int i{}; i < g_NumberOfMeshes; ++i)
 	{
-		const VkBuffer vertexBuffers[]{ m_Meshes.at(i)->GetVertexBuffer()};
+		const VkBuffer vertexBuffers[]{ m_Meshes.at(i)->GetVertexBuffer() };
 		const VkDeviceSize offsets[]{ 0 };
 
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);	
-		vkCmdBindIndexBuffer(commandBuffer, m_Meshes.at(i)->GetIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);	
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipeLineLayout, 0, 1, &m_DescriptorSets.at(m_CurrentFrame).at(i), 0, nullptr);
-			
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Meshes.at(i)->GetIndices().size()), 1, 0, 0, 0);	
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(commandBuffer, m_Meshes.at(i)->GetIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+		const std::array<VkDescriptorSet, 2> descriptorSets { m_TransformsDescriptorSets.at(m_CurrentFrame).at(i), m_TexturesDescriptorSets.at(i) };
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipeLineLayout, 0, static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
+
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_Meshes.at(i)->GetIndices().size()), 1, 0, 0, 0);
 	}
 
 	vkCmdEndRenderPass(commandBuffer);
@@ -1034,18 +969,18 @@ void Application::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
 
 void Application::UpdateUniformBuffers(uint32_t currentImage)
 {
-	for (size_t i{}; i < m_Meshes.size(); ++i)	
+	for (size_t i{}; i < m_Meshes.size(); ++i)
 	{
 		UniformBufferObject ubo
 		{
 			m_Meshes.at(i)->GetModelMatrix(),
 			m_Camera->GetViewMatrx(),
 			m_Camera->GetProjectionMatrix(),
-			m_Camera->GetPosition()	
+			m_Camera->GetPosition()
 		};
-		ubo.ProjectionMatrix[1][1] *= -1;	
+		ubo.ProjectionMatrix[1][1] *= -1;
 
-		memcpy(m_UniformBufferMaps.at(currentImage).at(i), &ubo, sizeof(UniformBufferObject));	
+		memcpy(m_UniformBufferMaps.at(currentImage).at(i), &ubo, sizeof(UniformBufferObject));
 	}
 }
 
@@ -1065,7 +1000,7 @@ void Application::DrawFrame()
 		throw std::runtime_error("failed to acquire the swap chain image");
 	}
 
-	UpdateUniformBuffers(m_CurrentFrame);	
+	UpdateUniformBuffers(m_CurrentFrame);
 
 	vkResetFences(m_Device, 1, &m_InFlight[m_CurrentFrame]);
 
@@ -1204,21 +1139,21 @@ void Application::FrameBufferResizedCallback(GLFWwindow* window, int width, int 
 	app->m_FrameBufferResized = true;
 }
 
-void Application::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)	
+void Application::KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	window;	
-	key;		
-	scancode;	
-	action;	
-	mods;	
+	window;
+	key;
+	scancode;
+	action;
+	mods;
 
-	if (key == GLFW_KEY_R && action == GLFW_RELEASE)	
-	{	
+	if (key == GLFW_KEY_R && action == GLFW_RELEASE)
+	{
 		for (int i{}; i < g_NumberOfMeshes; ++i)  m_Meshes.at(i)->SwitchRotate();
 	}
 	else if (key == GLFW_KEY_1 && action == GLFW_RELEASE)
 	{
-		m_PushConstants.RenderType = static_cast<int>(RenderType::Combined);	
+		m_PushConstants.RenderType = static_cast<int>(RenderType::Combined);
 	}
 	else if (key == GLFW_KEY_2 && action == GLFW_RELEASE)
 	{
@@ -1251,12 +1186,12 @@ VkResult Application::CreateUniformBuffers()
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
 		m_UniformBuffers.emplace_back();
-		m_UniformBufferMemories.emplace_back();	
-		m_UniformBufferMaps.emplace_back();	
+		m_UniformBufferMemories.emplace_back();
+		m_UniformBufferMaps.emplace_back();
 
 		m_UniformBuffers.at(i).resize(static_cast<size_t>(g_NumberOfMeshes));
-		m_UniformBufferMemories.at(i).resize(static_cast<size_t>(g_NumberOfMeshes));	
-		m_UniformBufferMaps.at(i).resize(static_cast<size_t>(g_NumberOfMeshes));	
+		m_UniformBufferMemories.at(i).resize(static_cast<size_t>(g_NumberOfMeshes));
+		m_UniformBufferMaps.at(i).resize(static_cast<size_t>(g_NumberOfMeshes));
 	}
 
 	for (int i{ 0 }; i < g_MaxFramePerFlight; ++i)
@@ -1270,11 +1205,11 @@ VkResult Application::CreateUniformBuffers()
 				bufferSize,
 				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				m_UniformBuffers.at(i).at(j),	
-				m_UniformBufferMemories.at(i).at(j)	
+				m_UniformBuffers.at(i).at(j),
+				m_UniformBufferMemories.at(i).at(j)
 			);
 
-			result = vkMapMemory(m_Device, m_UniformBufferMemories.at(i).at(j), 0, bufferSize, 0, &m_UniformBufferMaps.at(i).at(j));	
+			result = vkMapMemory(m_Device, m_UniformBufferMemories.at(i).at(j), 0, bufferSize, 0, &m_UniformBufferMaps.at(i).at(j));
 			if (result != VK_SUCCESS) return result;
 		}
 	}
@@ -1282,55 +1217,221 @@ VkResult Application::CreateUniformBuffers()
 	return result;
 }
 
-VkResult Application::CreateDescriptorPool()
+VkResult Application::CreateTexturesDescriptorSetLayout()
 {
-	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorPoolSize.html
-	std::array< VkDescriptorPoolSize, 3> descriptorPoolSizes
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutBinding.html
+	const std::array<VkDescriptorSetLayoutBinding, 4> descriptorSetLayoutBindings
 	{
-		VkDescriptorPoolSize
+		// Base color Texture
+		VkDescriptorSetLayoutBinding
 		{
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,									// type
-			static_cast<uint32_t>(g_MaxFramePerFlight * g_NumberOfMeshes)		// descriptorCount
+			0,													// binding
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,			// descriptorType	
+			1,													// descriptorCount
+			VK_SHADER_STAGE_FRAGMENT_BIT,						// stageFlags
+			nullptr												// pImmutableSamplers
 		},
-		VkDescriptorPoolSize
+		// Normal texture
+		VkDescriptorSetLayoutBinding
 		{
-			VK_DESCRIPTOR_TYPE_SAMPLER,	
-			static_cast<uint32_t>(g_MaxFramePerFlight * g_NumberOfMeshes)
+			1,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
 		},
-		VkDescriptorPoolSize	
+		// Glossiness texture
+		VkDescriptorSetLayoutBinding
 		{
-			VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-			static_cast<uint32_t>(g_MaxFramePerFlight * g_NumberOfMeshes) * 4
+			2,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
+		},
+		// Specular texture
+		VkDescriptorSetLayoutBinding
+		{
+			3,
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			1,
+			VK_SHADER_STAGE_FRAGMENT_BIT,
+			nullptr
 		}
 	};
 
-	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorPoolCreateInfo.html
-	const VkDescriptorPoolCreateInfo descriptorPoolCreateInfo
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutCreateInfo.html
+	const VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo
 	{
-		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,								// sType
-		nullptr,																	// pNext
-		0,																			// flags
-		static_cast<uint32_t>(g_MaxFramePerFlight * g_NumberOfMeshes),				// maxSets
-		static_cast<uint32_t>(descriptorPoolSizes.size()),							// poolSizeCount
-		descriptorPoolSizes.data()													// pPoolSizes
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,		// sType
+		nullptr,													// pNext
+		0,															// flags
+		uint32_t(descriptorSetLayoutBindings.size()),				// bindingCount
+		descriptorSetLayoutBindings.data()							// pBindings
 	};
 
-	return vkCreateDescriptorPool(m_Device, &descriptorPoolCreateInfo, nullptr, &m_DescriptorPool);
+	return vkCreateDescriptorSetLayout(m_Device, &descriptorSetLayoutCreateInfo, nullptr, &m_TexturesDescriptorSetLayout);
 }
 
-VkResult Application::CreateDescriptorSets()
+VkResult Application::CreateTransformsDescriptorSetLayout()
 {
-	VkResult result{ VK_SUCCESS };		
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutBinding.html
+	const std::array<VkDescriptorSetLayoutBinding, 1> descriptorSetLayoutBindings
+	{
+		// Uniform buffer object
+		VkDescriptorSetLayoutBinding
+		{
+			0,											// binding
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,			// descriptorType	
+			1,											// descriptorCount	
+			VK_SHADER_STAGE_VERTEX_BIT,					// stageFlags	
+			nullptr										// pImmutableSamplers	
+		}
+	};
 
-	m_DescriptorSets.resize(g_MaxFramePerFlight);
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetLayoutCreateInfo.html
+	const VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo
+	{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,		// sType
+		nullptr,													// pNext
+		0,															// flags
+		uint32_t(descriptorSetLayoutBindings.size()),				// bindingCount
+		descriptorSetLayoutBindings.data()							// pBindings
+	};
 
-	std::vector<VkDescriptorSetLayout> descriptorSetlayouts{ g_NumberOfMeshes, m_DescriptorSetLayout };
+	return vkCreateDescriptorSetLayout(m_Device, &descriptorSetLayoutCreateInfo, nullptr, &m_TransformsDescriptorSetLayout);
+}
+
+VkResult Application::CreateTexturesDescriptorSets()
+{
+	VkResult result{ VK_SUCCESS };
+
+	m_TexturesDescriptorSets.resize(g_NumberOfMeshes);
+	std::vector<VkDescriptorSetLayout> descriptorSetlayouts{ g_NumberOfMeshes, m_TexturesDescriptorSetLayout };
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetAllocateInfo.html
+	const VkDescriptorSetAllocateInfo descriptorSetAllocateInfo
+	{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,			// sType
+		nullptr,												// pNext
+		m_DescriptorPool,										// descriptorPool
+		static_cast<uint32_t>(g_NumberOfMeshes),				// descriptorSetCount
+		descriptorSetlayouts.data()								// pSetLayouts
+	};
+
+	result = vkAllocateDescriptorSets(m_Device, &descriptorSetAllocateInfo, m_TexturesDescriptorSets.data());
+	if (result != VK_SUCCESS) return result;
+
+	for (int i{}; i < g_NumberOfMeshes; i++)
+	{
+		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorImageInfo.html
+		const VkDescriptorImageInfo descriptorBaseColorInfo
+		{
+			m_TextureSampler,								// sampler	
+			m_BaseColorTextures.at(i)->GetImageView(),		// imageView
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		// imageLayout
+		};
+
+		const VkDescriptorImageInfo descriptorNormalInfo
+		{
+			m_TextureSampler,
+			m_NormalTextures.at(i)->GetImageView(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		};
+
+		const VkDescriptorImageInfo descriptorGlossInfo
+		{
+			m_TextureSampler,
+			m_GlossTextures.at(i)->GetImageView(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		};
+
+		const VkDescriptorImageInfo descriptorSpecularInfo
+		{
+			m_TextureSampler,
+			m_SpecularTextures.at(i)->GetImageView(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		};
+
+		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkWriteDescriptorSet.html
+		std::array<VkWriteDescriptorSet, 4> writeDescriptorSets
+		{
+			// Base color texture
+			VkWriteDescriptorSet
+			{
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,			// sType
+				nullptr,										// pNext
+				m_TexturesDescriptorSets.at(i),					// dstSet	
+				0,												// dstBinding
+				0,												// dstArrayElement
+				1,												// descriptorCount
+				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,		// descriptorType
+				&descriptorBaseColorInfo,						// pImageInfo
+				nullptr,										// pBufferInfo
+				nullptr											// pTexelBufferView
+			},
+			// normal texture
+			VkWriteDescriptorSet
+			{
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				nullptr,
+				m_TexturesDescriptorSets.at(i),
+				1,
+				0,
+				1,
+				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				&descriptorNormalInfo,	
+				nullptr,
+				nullptr
+			},
+			// glossiness texture
+			VkWriteDescriptorSet
+			{
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				nullptr,
+				m_TexturesDescriptorSets.at(i),
+				2,
+				0,
+				1,
+				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				&descriptorGlossInfo,
+				nullptr,
+				nullptr
+			},
+			// specular texture
+			VkWriteDescriptorSet
+			{
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				nullptr,
+				m_TexturesDescriptorSets.at(i),
+				3,
+				0,
+				1,
+				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				&descriptorSpecularInfo,
+				nullptr,
+				nullptr
+			}
+		};
+
+		vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+	}
+
+	return result;
+}
+
+VkResult Application::CreateTransformsDescriptorSets()
+{
+	VkResult result{ VK_SUCCESS };
+
+	m_TransformsDescriptorSets.resize(g_MaxFramePerFlight);	
+
+	std::vector<VkDescriptorSetLayout> descriptorSetlayouts{ g_NumberOfMeshes, m_TransformsDescriptorSetLayout };	
 
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
-		m_DescriptorSets.emplace_back();	
-
-		m_DescriptorSets.at(i).resize(static_cast<size_t>(g_NumberOfMeshes));	
+		m_TransformsDescriptorSets.emplace_back();
+		m_TransformsDescriptorSets.at(i).resize(static_cast<size_t>(g_NumberOfMeshes));	
 	}
 
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorSetAllocateInfo.html
@@ -1345,13 +1446,13 @@ VkResult Application::CreateDescriptorSets()
 
 	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
-		result = vkAllocateDescriptorSets(m_Device, &descriptorSetAllocateInfo, m_DescriptorSets.at(i).data());
+		result = vkAllocateDescriptorSets(m_Device, &descriptorSetAllocateInfo, m_TransformsDescriptorSets.at(i).data());	
 		if (result != VK_SUCCESS) return result;
 	}
 
-	for (int i{ 0 }; i < g_MaxFramePerFlight; i++)
+	for (int i{}; i < g_MaxFramePerFlight; ++i)
 	{
-		for (int j{}; j < g_NumberOfMeshes; j++)
+		for (int j{}; j < g_NumberOfMeshes; ++j)
 		{
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorBufferInfo.html
 			const VkDescriptorBufferInfo descriptorBufferInfo
@@ -1361,51 +1462,15 @@ VkResult Application::CreateDescriptorSets()
 				sizeof(UniformBufferObject)			// range
 			};
 
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorImageInfo.html
-			const VkDescriptorImageInfo descriptorSamplerInfo
-			{
-				m_TextureSampler,								// sampler
-				VK_NULL_HANDLE,									// imageView
-				VK_IMAGE_LAYOUT_UNDEFINED						// imageLayout
-			};
-
-			const VkDescriptorImageInfo descriptorBaseColorInfo
-			{
-				VK_NULL_HANDLE,									
-				m_BaseColorTextures.at(j)->GetImageView(),	
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		
-			};
-
-			const VkDescriptorImageInfo descriptorNormalInfo
-			{
-				VK_NULL_HANDLE,									
-				m_NormalTextures.at(j)->GetImageView(),
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		
-			};
-
-			const VkDescriptorImageInfo descriptorGlossInfo
-			{
-				VK_NULL_HANDLE,									
-				m_GlossTextures.at(j)->GetImageView(),
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL	
-			};
-
-			const VkDescriptorImageInfo descriptorSpecularInfo
-			{
-				VK_NULL_HANDLE,									
-				m_SpecularTextures.at(j)->GetImageView(),
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL		
-			};
-
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkWriteDescriptorSet.html
-			std::array<VkWriteDescriptorSet, 6> writeDescriptorSets
+			std::array<VkWriteDescriptorSet, 1> writeDescriptorSets
 			{
 				// Uniform buffer object
 				VkWriteDescriptorSet
 				{
 					VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,			// sType
 					nullptr,										// pNext
-					m_DescriptorSets.at(i).at(j),					// dstSet
+					m_TransformsDescriptorSets.at(i).at(j),			// dstSet	
 					0,												// dstBinding
 					0,												// dstArrayElement
 					1,												// descriptorCount
@@ -1413,76 +1478,6 @@ VkResult Application::CreateDescriptorSets()
 					nullptr,										// pImageInfo
 					&descriptorBufferInfo,							// pBufferInfo
 					nullptr											// pTexelBufferView
-				},
-				// sampler
-				VkWriteDescriptorSet
-				{
-					VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					nullptr,
-					m_DescriptorSets.at(i).at(j),
-					1,
-					0,
-					1,
-					VK_DESCRIPTOR_TYPE_SAMPLER,
-					&descriptorSamplerInfo,
-					nullptr,
-					nullptr
-				},
-				// base color texture
-				VkWriteDescriptorSet
-				{
-					VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					nullptr,
-					m_DescriptorSets.at(i).at(j),
-					2,
-					0,
-					1,
-					VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-					&descriptorBaseColorInfo,
-					nullptr,
-					nullptr
-				},
-				// normal texture
-				VkWriteDescriptorSet
-				{
-					VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					nullptr,
-					m_DescriptorSets.at(i).at(j),
-					3,
-					0,
-					1,
-					VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-					&descriptorNormalInfo,
-					nullptr,
-					nullptr
-				},
-				// Gloss texture
-				VkWriteDescriptorSet
-				{
-					VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					nullptr,
-					m_DescriptorSets.at(i).at(j),
-					4,
-					0,
-					1,
-					VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-					&descriptorGlossInfo,
-					nullptr,
-					nullptr
-				},
-				// Specular texture
-				VkWriteDescriptorSet
-				{
-					VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-					nullptr,
-					m_DescriptorSets.at(i).at(j),	
-					5,
-					0,
-					1,
-					VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-					&descriptorSpecularInfo,
-					nullptr,
-					nullptr
 				}
 			};
 
@@ -1491,6 +1486,37 @@ VkResult Application::CreateDescriptorSets()
 	}
 
 	return result;
+}
+
+VkResult Application::CreateDescriptorPool()
+{
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorPoolSize.html
+	std::array< VkDescriptorPoolSize, 2> descriptorPoolSizes
+	{
+		VkDescriptorPoolSize
+		{
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,									// type
+			static_cast<uint32_t>(g_MaxFramePerFlight * g_NumberOfMeshes)		// descriptorCount	
+		},
+		VkDescriptorPoolSize
+		{
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			static_cast<uint32_t>(g_NumberOfMeshes * 4)
+		}
+	};
+
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDescriptorPoolCreateInfo.html
+	const VkDescriptorPoolCreateInfo descriptorPoolCreateInfo
+	{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,														// sType
+		nullptr,																							// pNext
+		0,																									// flags
+		static_cast<uint32_t>((g_MaxFramePerFlight * g_NumberOfMeshes) + (g_NumberOfMeshes)),				// maxSets
+		static_cast<uint32_t>(descriptorPoolSizes.size()),													// poolSizeCount
+		descriptorPoolSizes.data()																			// pPoolSizes
+	};
+
+	return vkCreateDescriptorPool(m_Device, &descriptorPoolCreateInfo, nullptr, &m_DescriptorPool);
 }
 
 void Application::CreateTextureSampler()
@@ -1551,10 +1577,10 @@ void Application::CreateDepthResources()
 	TransitionImageLayout(m_Device, m_CommandPool, m_GrahicsQueue, m_DepthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1);
 }
 
-void Application::CreateColorResources()	
+void Application::CreateColorResources()
 {
 	CreateImage
-	( 
+	(
 		m_PhysicalDevice,
 		m_Device,
 		m_ImageExtend,

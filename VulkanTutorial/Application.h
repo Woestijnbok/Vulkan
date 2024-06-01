@@ -46,7 +46,6 @@ private:
     void RetrieveSwapChainImages();
     VkResult CreateSwapChainImageViews();
     VkResult CreateRenderPass();
-    VkResult CreateDescriptorSetLayout();
     VkResult CreateGraphicsPipeline();
     VkResult CreateSwapChainFrameBuffers();
     VkResult CreateCommandPool();
@@ -59,7 +58,10 @@ private:
     void CleanupSwapChain();
     VkResult CreateUniformBuffers();
     VkResult CreateDescriptorPool();
-    VkResult CreateDescriptorSets();
+    VkResult CreateTexturesDescriptorSetLayout();
+    VkResult CreateTransformsDescriptorSetLayout();
+    VkResult CreateTexturesDescriptorSets();
+    VkResult CreateTransformsDescriptorSets();
     void CreateTextureSampler();
     void CreateDepthResources();
     void CreateColorResources();
@@ -86,7 +88,6 @@ private:
     VkShaderModule m_VertexShader;
     VkShaderModule m_FragmentShader;
     VkRenderPass m_RenderPass;
-    VkDescriptorSetLayout m_DescriptorSetLayout;
     VkPipelineLayout m_PipeLineLayout;
     VkPipeline m_PipeLine;
     std::vector<VkFramebuffer> m_SwapChainFrameBuffers;
@@ -101,12 +102,15 @@ private:
     std::vector< std::vector<VkBuffer>> m_UniformBuffers;
     std::vector< std::vector<VkDeviceMemory>> m_UniformBufferMemories;
     std::vector< std::vector<void*>> m_UniformBufferMaps;
+    VkDescriptorSetLayout m_TexturesDescriptorSetLayout;
+    VkDescriptorSetLayout m_TransformsDescriptorSetLayout;
     VkDescriptorPool m_DescriptorPool;
-    std::vector< std::vector<VkDescriptorSet>> m_DescriptorSets;
-    std::vector <Texture*> m_BaseColorTextures;
-    std::vector <Texture*> m_NormalTextures;
-    std::vector <Texture*> m_GlossTextures;
-    std::vector <Texture*> m_SpecularTextures;
+    std::vector<VkDescriptorSet> m_TexturesDescriptorSets;
+    std::vector< std::vector<VkDescriptorSet>> m_TransformsDescriptorSets;
+    std::vector<Texture*> m_BaseColorTextures;
+    std::vector<Texture*> m_NormalTextures;
+    std::vector<Texture*> m_GlossTextures;
+    std::vector<Texture*> m_SpecularTextures;
     VkSampler m_TextureSampler;
     VkImage m_DepthImage;
     VkDeviceMemory m_DepthMemory;
