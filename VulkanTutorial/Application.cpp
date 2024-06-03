@@ -5,7 +5,7 @@
 #ifdef NDEBUG
 const bool g_EnableValidationlayers{ false };
 #else
-const bool g_EnableValidationlayers{ true };
+const bool g_EnableValidationlayers{ false };
 #endif
 
 const int g_MaxFramePerFlight{ 2 };
@@ -94,6 +94,9 @@ Application::Application(int width, int height) :
 	m_Camera = new Camera{ glm::radians(45.0f), (float(m_ImageExtend.width) / float(m_ImageExtend.height)), 0.1f, 10.0f, 2.5f };
 	m_Camera->SetStartPosition(glm::vec3{ 2.83f, 2.09f, 1.41f }, 0.63f, -0.39f);
 
+	std::cout << "--- Mesh Controls ---" << std::endl;
+	std::cout << "Stop rotating mesh with R" << std::endl << std::endl;	
+
 	std::cout << "--- Render Controls ---" << std::endl;
 	std::cout << "Combined render mode with 1" << std::endl;
 	std::cout << "Base color map render mode with 2" << std::endl;
@@ -179,7 +182,7 @@ void Application::InitializeMeshes()
 	m_Meshes.at(0)->SetModelMatrix(glm::scale(glm::rotate(glm::mat4{ 1.0f }, glm::radians(-90.0f), g_WorldForward), glm::vec3{ 0.1f, 0.1f, 0.1f }));
 
 	// Mixer
-	m_Meshes.push_back(new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/Scarlett_LP_rotated_knobs.obj" });
+	m_Meshes.push_back(new Mesh{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Models/mixer.obj" });
 	m_Meshes.at(1)->SetModelMatrix
 	(
 		glm::translate
@@ -333,36 +336,32 @@ bool Application::ValidationLayersPresent()
 VkResult Application::CreateVulkanInstance()
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkApplicationInfo.html
-	VkApplicationInfo applicationInfo{};
-	applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	applicationInfo.pApplicationName = "Hello Triangle";
-	applicationInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-	applicationInfo.pEngineName = "No Engine";
-	applicationInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-	applicationInfo.apiVersion = VK_API_VERSION_1_3;
-
-	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkInstanceCreateInfo.html
-	VkInstanceCreateInfo instanceCreateInfo{};
-	instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	instanceCreateInfo.pApplicationInfo = &applicationInfo;
-	instanceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(m_InstanceExtensionNames.size());
-	instanceCreateInfo.ppEnabledExtensionNames = m_InstanceExtensionNames.data();
+	const VkApplicationInfo applicationInfo
+	{
+		VK_STRUCTURE_TYPE_APPLICATION_INFO,			// sType
+		nullptr,									// pNext
+		"Vulkan Tutorial",							// pApplicationName
+		VK_MAKE_VERSION(1, 0, 0),					// applicationVersion
+		"No Engine",								// pEngineName
+		VK_MAKE_VERSION(1, 0, 0),					// engineVersion
+		VK_API_VERSION_1_3							// apiVersion
+	};
 
 	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-	if (g_EnableValidationlayers)
-	{
-		instanceCreateInfo.enabledLayerCount = static_cast<uint32_t>(m_InstanceValidationLayerNames.size());
-		instanceCreateInfo.ppEnabledLayerNames = m_InstanceValidationLayerNames.data();
+	if(g_EnableValidationlayers) FillDebugMessengerCreateInfo(debugCreateInfo);
 
-		// pNext will contain the debug struct so we can have debugging on vkCreateInstance and vkDestroyInstance()
-		FillDebugMessengerCreateInfo(debugCreateInfo);
-		instanceCreateInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
-	}
-	else
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkInstanceCreateInfo.html
+	const VkInstanceCreateInfo instanceCreateInfo
 	{
-		instanceCreateInfo.enabledLayerCount = 0;
-		instanceCreateInfo.pNext = nullptr;
-	}
+		VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,																// sType
+		(g_EnableValidationlayers) ? &debugCreateInfo : nullptr,											// pNext
+		0,																									// flags
+		&applicationInfo,																					// pApplicationInfo
+		(g_EnableValidationlayers) ? static_cast<uint32_t>(m_InstanceValidationLayerNames.size()) : 0,		// enabledLayerCount
+		(g_EnableValidationlayers) ? m_InstanceValidationLayerNames.data() : nullptr,						// pEnabledLayerNames
+		static_cast<uint32_t>(m_InstanceExtensionNames.size()),												// enabledExtensionCount
+		m_InstanceExtensionNames.data()																		// pEnabledExtensionNames
+	};
 
 	return vkCreateInstance(&instanceCreateInfo, nullptr, &m_Instance);
 }
@@ -371,7 +370,6 @@ VkResult Application::SetupDebugMessenger()
 {
 	if (!g_EnableValidationlayers) return VK_SUCCESS;
 
-	// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkDebugUtilsMessengerCreateInfoEXT.html
 	VkDebugUtilsMessengerCreateInfoEXT createInformation{};
 	FillDebugMessengerCreateInfo(createInformation);
 
@@ -1599,13 +1597,13 @@ void Application::CreateColorResources()
 
 void Application::InitializeTextures()
 {
-	m_BaseColorTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_diffuse.png", VK_FORMAT_R8G8B8A8_SRGB });
+	m_BaseColorTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_base.png", VK_FORMAT_R8G8B8A8_SRGB });
 	m_NormalTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_normal.png", VK_FORMAT_R8G8B8A8_UNORM });
 	m_GlossTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_gloss.png", VK_FORMAT_R8G8B8A8_UNORM });
 	m_SpecularTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/vehicle_specular.png", VK_FORMAT_R8G8B8A8_UNORM });
 
-	m_BaseColorTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_diffuse.png", VK_FORMAT_R8G8B8A8_SRGB });
-	m_NormalTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_normal.png", VK_FORMAT_R8G8B8A8_UNORM });
-	m_GlossTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_roughness.png", VK_FORMAT_R8G8B8A8_UNORM });
-	m_SpecularTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/Scarlett_metalness.png", VK_FORMAT_R8G8B8A8_UNORM });
+	m_BaseColorTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/mixer_base.png", VK_FORMAT_R8G8B8A8_SRGB });
+	m_NormalTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/mixer_normal.png", VK_FORMAT_R8G8B8A8_UNORM });
+	m_GlossTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/mixer_gloss.png", VK_FORMAT_R8G8B8A8_UNORM });
+	m_SpecularTextures.push_back(new Texture{ m_PhysicalDevice, m_Device, m_CommandPool, m_GrahicsQueue, "Textures/mixer_specular.png", VK_FORMAT_R8G8B8A8_UNORM });
 }

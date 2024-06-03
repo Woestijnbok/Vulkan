@@ -1,3 +1,3 @@
-glslc.exe Basic.vert -o vert.spv
-glslc.exe Basic.frag -o frag.spv
+glslc.exe pbr.vert -o vert.spv
+glslc.exe pbr.frag -o frag.spv
 pause
