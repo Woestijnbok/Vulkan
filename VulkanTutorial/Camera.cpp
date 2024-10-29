@@ -8,6 +8,7 @@
 #include <glm/ext/scalar_constants.hpp>
 #include <iostream>
 #include <format>
+#include <algorithm>
 
 Camera::Camera(float fieldOfView, float ascpectRatio, float nearPlane, float farPlane, float movementSpeed) :
     m_MovementSpeed{ movementSpeed },
