@@ -72,6 +72,12 @@
       <Command>
       </Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>xcopy /E /I /Y "$(ProjectDir)Textures" "$(TargetDir)Textures\"
+xcopy /E /I /Y "$(ProjectDir)Models" "$(TargetDir)Models\"
+xcopy /Y "$(ProjectDir)Shaders\vert.spv" "$(TargetDir)Shaders\"
+xcopy /Y "$(ProjectDir)Shaders\frag.spv" "$(TargetDir)Shaders\"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -99,6 +105,12 @@
       <Command>
       </Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>xcopy /E /I /Y "$(ProjectDir)Textures" "$(TargetDir)Textures\"
+xcopy /E /I /Y "$(ProjectDir)Models" "$(TargetDir)Models\"
+xcopy /Y "$(ProjectDir)Shaders\vert.spv" "$(TargetDir)Shaders\"
+xcopy /Y "$(ProjectDir)Shaders\frag.spv" "$(TargetDir)Shaders\"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />

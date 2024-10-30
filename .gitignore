@@ -397,4 +397,10 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
-!Models/**/*.obj
+# Make sure to include all resources
+!VulkanTutorial/Models/
+!VulkanTutorial/Models/**
+!VulkanTutorial/Textures/
+!VulkanTutorial/Textures/**
+!VulkanTutorial/Shaders/
+!VulkanTutorial/Shaders/**
