@@ -1,6 +1,6 @@
 #include <iostream>
 #include <iomanip>
-#include <GLFW/glfw3.h>
+#include <glfw3.h>
 #include <fstream>
 
 #include "HelperFunctions.h"

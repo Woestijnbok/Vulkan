@@ -1,7 +1,7 @@
 #ifndef TEXTURE
 #define TEXTURE
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan.hpp>
 #include <filesystem>
 
 class Texture

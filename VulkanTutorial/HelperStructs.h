@@ -1,10 +1,10 @@
 #ifndef HELPER_STRUCTS
 #define HELPER_STRUCTS
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan.hpp>
 #include <optional>
 #include <vector>
-#include <glm/glm.hpp>
+#include <glm.hpp>
 
 struct QueueFamilyIndices final
 {

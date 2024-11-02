@@ -11,15 +11,15 @@ const bool g_EnableValidationlayers{ false };
 const int g_MaxFramePerFlight{ 2 };
 const int g_NumberOfMeshes{ 2 };
 
-#include <GLFW/glfw3.h>
+#include <glfw3.h>
 #include <stdexcept>
 #include <iostream>
 #include <algorithm>
 #include <iomanip>
 #include <cstring>
 #include <set>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <glm.hpp>
+#include <gtc/matrix_transform.hpp>
 #include <chrono>
 #include <functional>
 

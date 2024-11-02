@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <_PropertySheetDisplayName>GLFW, GLM, STB and TOL</_PropertySheetDisplayName>
+    <IncludePath>$(SolutionDir)Libraries\GLFW\include;$(SolutionDir)Libraries\GLM\include;$(SolutionDir)Libraries\STB\include;$(SolutionDir)Libraries\TOL\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)Libraries\GLFW\lib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <Link>
+      <AdditionalDependencies>glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>

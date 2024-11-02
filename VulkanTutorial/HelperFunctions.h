@@ -1,7 +1,7 @@
 #ifndef  HELPER_FUNCTIONS
 #define HELPER_FUNCTIONS
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan.hpp>
 #include <filesystem>
 
 #include "HelperStructs.h"

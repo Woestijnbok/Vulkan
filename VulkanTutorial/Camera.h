@@ -1,8 +1,8 @@
 #ifndef CAMERA
 #define CAMERA
 
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
+#include <glfw3.h>
+#include <glm.hpp>
 #include <chrono>
 
 const glm::vec3 g_WorldForward{ -1.0f, 0.0f, 0.0f };

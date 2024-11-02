@@ -1,11 +1,11 @@
 #include "Camera.h"
 
-#include <glm/vec3.hpp> 
-#include <glm/vec4.hpp>
-#include <glm/mat4x4.hpp> 
-#include <glm/ext/matrix_transform.hpp> 
-#include <glm/ext/matrix_clip_space.hpp> 
-#include <glm/ext/scalar_constants.hpp>
+#include <vec3.hpp> 
+#include <vec4.hpp>
+#include <mat4x4.hpp> 
+#include <ext/matrix_transform.hpp> 
+#include <ext/matrix_clip_space.hpp> 
+#include <ext/scalar_constants.hpp>
 #include <iostream>
 #include <format>
 #include <algorithm>

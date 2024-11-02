@@ -1,8 +1,11 @@
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
-//#include <vld.h>
 #include <format>
+
+#ifdef _DEBUG
+    #include <vld.h>
+#endif // _DEBUG
 
 #include "Application.h"
 

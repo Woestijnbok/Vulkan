@@ -1,7 +1,7 @@
 #ifndef APPLICATION
 #define APPLICATION
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan.hpp>
 #include <vector>
 
 #include "HelperStructs.h"

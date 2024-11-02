@@ -2,8 +2,8 @@
 
 #include <tiny_obj_loader.h>
 #include <unordered_map>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <glm.hpp>
+#include <gtc/matrix_transform.hpp>
 #include <iostream>
 
 #include "Mesh.h"

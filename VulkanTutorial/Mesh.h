@@ -1,8 +1,8 @@
 #ifndef MESH
 #define MESH
 
-#include <vulkan/vulkan.hpp>
-#include <glm/glm.hpp>
+#include <vulkan.hpp>
+#include <glm.hpp>
 #include <vector>
 #include <array>
 #include <filesystem>
