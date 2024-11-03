@@ -75,11 +75,11 @@ void Camera::HandleCameraMovement(GLFWwindow* window, std::chrono::duration<floa
     {
         m_Position -= m_Forward * m_MovementSpeed * seconds.count();
     }
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
     {
         m_Position += m_Up * m_MovementSpeed * seconds.count();
     }
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
     {
         m_Position -= m_Up * m_MovementSpeed * seconds.count();
     }
