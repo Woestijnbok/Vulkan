@@ -11,7 +11,7 @@ The main shader here is a basic concept of a pbr one written in glsl, the scene 
 # Controls
 
 - **Camera Position**: The camera can be moved forward via **WS**, up with **QE** and to the right using **AD** (UE Controls).
-- **Camera Rotation**: Camera's pitch and yaw can be changed by dragging **RIGHT MOUSE BUTTON** while it's down.
+- **Camera Rotation**: Camera's pitch and yaw can change by dragging the **RIGHT MOUSE BUTTON** while it's down.
 - **General**: To go back to the combined rendering mode press **1**, to stop the vehicle from rotating use **R**.
 - **Other**: Using the **NUMBER KEYS** you can change the render mode: **2** Base Color, **3** Normal, **4** Glossiness and **5** for Specular
 
