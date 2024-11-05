@@ -400,5 +400,5 @@ FodyWeavers.xsd
 # Make sure to include all resources and libraries
 !Libraries/
 !Libraries/**
-!VulkanTutorial/Resources/
-!VulkanTutorial/Resources/**
+!Vulkan/Resources/
+!Vulkan/Resources/**
